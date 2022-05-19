@@ -46,7 +46,7 @@ def plot_tumor(tumor,drivers=False):
     else:
         gens = [item.gen.ID for item in tumor.cells.items]
     graph[pos] = gens
-    if params.DIM ==2:
+    if classes.params['dim'] ==2:
         graph[graph==0]=-np.max(graph.flatten())
         sns.heatmap(graph)
         plt.show()
@@ -54,7 +54,7 @@ def plot_tumor(tumor,drivers=False):
         print('not yet implemented!')
         raise(NotImplementedError)
 def plot_slice(tumor, ax = 0):
-    if params.DIM==2:
+    if classes.params['dim']==2:
         plot_tumor(tumor)
     else:
         graph = tumor.graph.copy()
