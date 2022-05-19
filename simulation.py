@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import params
 import classes
 import time
 from scipy.stats import binned_statistic
@@ -14,8 +13,8 @@ import sys
 #set up 2d or 3d grid
 
 def stopping_condition(tumor):
-    nmax = params.MAX_POP
-    imax = params.MAX_ITER
+    nmax = classes.params['n_cells']
+    imax = classes.params['max_iter']
     return tumor.N == nmax or tumor.iter > imax or tumor.hit_bound
 def run(tumor = None):
     t = []
