@@ -1,9 +1,11 @@
-from typing_extensions import Self
-import params
+
+from ast import Index
+import main
 import numpy as np
 import pandas as pd
 import sys
 import time
+params = np.load(main.PARAMS_PATH+'/params.pkl',allow_pickle=True)
 #classes and object methods
 #np.random.seed(params.SEED)
 #NBRS = params.NBRS
@@ -51,8 +53,8 @@ class Cell():
                 self.gen = new_gen
                 tumor.add_genotype(new_gen)
             tumor.next_snp = n
-
-
+            #update max death rate
+            
     def progression_mutate(self, tumor):
         #TODO
         raise(NotImplementedError)
@@ -84,21 +86,24 @@ class Genotype():
         self.n_drivers = self.drivers.shape[0]
         self.mutators = np.array([], dtype = int) if mutators is None else mutators
         self.n_mutators = self.mutators.shape[0] #TODO: justify mutator 
-        self.death_rate = params.INIT_DEATH_RATE if params.FIXED_DEATH_RATE else params.INIT_DEATH_RATE*np.power(1-params.DRIVER_FITNESS, self.n_drivers)
-        self.neut_rate = params.INIT_MUT_PROB*np.power(1+params.MUTATOR_FACTOR, self.n_mutators)
-        self.driver_rate = params.DRIVER_PROB*np.power(1+params.MUTATOR_FACTOR, self.n_mutators)
-        self.mutator_rate = params.MUTATOR_PROB*np.power(1+params.MUTATOR_FACTOR, self.n_mutators)
+        self.death_rate = params['init_death_rate'] if params['fixed_death_rate'] else params['init_death_rate']*np.power(params['driver_dr_factor'], self.n_drivers)
+        self.neut_rate = params['init_mut_prob']*np.power(params['mutator_factor'], self.n_mutators)
+        self.driver_rate = params['driver_prob']*np.power(params['mutator_factor'], self.n_mutators)
+        self.mutator_rate = params['mutator_prob']*np.power(params['mutator_factor'], self.n_mutators)
         self.parent = parent
         self.children = np.array([],dtype = int)
         self.number = 1
         #add genotype to genotype list
-    def add(self):
+    def add(self,tumor):
+        tumor.add_driver_count(self.n_drivers)
         self.number+=1
-    def remove(self):
+    def remove(self,tumor):
         if self.number ==0:
             print("call to remove extinct genotype!!")
             raise(Exception)
         else:
+            if self.number==1:
+                tumor.remove_driver_count(self.n_drivers)
             self.number-=1
 
     def __repr__(self):
@@ -132,17 +137,42 @@ class Tumor():
             self.next_snp = None
            
         self.progression = progression
-        self.bmax = params.INIT_BIRTH_RATE 
-        self.dmax = params.MAX_DEATH_RATE
+        self.bmax = params['init_birth_rate']
+        self.dmax = params['max_death_rate']
         self.t = 0
         self.iter = 1
         self.hit_bound = False 
-        self.drivers = np.array([])
+        self.drivers = np.array([]) 
+        self.driver_counts = np.array([]) #ascending sorted list of number of drivers in each genotype
+        self.max_drivers = 0
         self.mutators = np.array([])
         self.t_traj = []
         self.N_traj = []
 
-    
+    """add a number of drivers: Rationale: Rather than use priority queue to track highest death rate, 
+    use fact that death rate is function of number of driver mutations to index in constant time
+    """
+    def add_driver_count(self,n):
+        if n+1 > self.driver_counts.shape[0]:
+            self.driver_counts = np.append(self.driver_counts, np.zeros(n+1-self.driver_counts.shape[0]))
+            self.driver_counts[-1]=1
+        else:
+            if self.driver_counts[n-1]==0:
+                self.driver_counts[n-1] = 1
+                self.dmax = self.get_dmax()
+      
+    """remove a number of drivers"""
+    def remove_driver_count(self,n):
+        if n+1 > self.driver_counts.shape[0]:
+            print('driver count should have been added')
+            raise(IndexError)
+        else:
+            if self.driver_counts[n-1]==1:
+                self.driver_counts[n-1] = 0
+                self.dmax = self.get_dmax()
+    def get_dmax(self):
+        min_driv =  self.driver_counts[self.driver_counts ==1][0]
+        return params['init_death_rate']*np.power(params['driver_dr_factor'], min_driv)
     """update the time of the simulation after a birth/death event """
     def update_time(self):
         self.t+=1/(self.bmax*self.N)
@@ -193,7 +223,7 @@ class Tumor():
         self.graph[born_cell.pos] = born_cell.ID
         self.cells.add_item(born_cell)
         self.N+=1
-        born_cell.gen.add()
+        born_cell.gen.add(self)
     """function to remove cell from cell list change relevant fields"""
     def remove_cell(self, doomed_cell):
         #print('removing cell from')
@@ -207,7 +237,7 @@ class Tumor():
             raise(Exception)
         else:
             self.N-=1
-        doomed_cell.gen.remove()
+        doomed_cell.gen.remove(self)
         #print('cells are now')
         #print(self.cells)
         #print('and dictionary is')
@@ -221,13 +251,13 @@ class Tumor():
         return str(self.graph)
 
 def get_empty_nbrs(cell, graph):
-    nbrs = (params.NBRS + np.array(cell.pos))
+    nbrs = (params['neighbors'] + np.array(cell.pos))
     tups = tuple([tuple(col) for col in nbrs.T])
     ids = graph[tups]
     return nbrs[ids==0]
 
 def check_bound(arr):
-        return (arr==params.BOUNDARY-1).any() or (arr==0).any()
+        return (arr==params['boundary']-1).any() or (arr==0).any()
   
 #set cell in center of grid, set t=0
 def initialize_tumor():
@@ -236,8 +266,8 @@ def initialize_tumor():
     cell_list = ListDict()
     gen = Genotype()
     gen_list.add_item(gen)
-    loc = int(params.BOUNDARY/2)
-    d = int(params.DIM)
+    loc = int(params['boundary']/2)
+    d = int(params['dim'])
     center = tuple(loc*np.ones(d,dtype = int))
     cell = Cell(ID = 1,gen = gen, pos = center)
     cell_list.add_item(cell)
@@ -245,8 +275,8 @@ def initialize_tumor():
     return graph, gen_list , cell_list, center
 
 def set_graph():
-    l = int(params.BOUNDARY)
-    d = int(params.DIM)
+    l = int(params['boundary'])
+    d = int(params['dim'])
     t = tuple(l*np.ones(d,dtype = int))
     return np.zeros(t,dtype=int)
 
