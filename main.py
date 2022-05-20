@@ -1,17 +1,21 @@
 #file with end-user functions to set parameters and run simulation 
 import numpy as np
 import pickle
+import classes
+import os
+from pathlib import Path
+import simulation
 #absolute path to parameter file 
-PARAMS_PATH = '~/Documents/current/tumor_stuff/tumorEvoSim'
+PARAMS_PATH = 'Documents/current/tumor_stuff/tumorEvoSim' #change to program directory 
 #defualt parameters: 
 DIM = 2
-INIT_BIRTH_RATE = 0.69
+INIT_BIRTH_RATE = np.log2(2)
 FIXED_DEATH_RATE = False
 DRIVER_ADVANTAGE = .05
 INIT_DEATH_RATE = .95*INIT_BIRTH_RATE
 MAX_DEATH_RATE = INIT_BIRTH_RATE
 
-PAD = .1 #fraction of radius to pad boundary 
+PAD = 5 #fraction of radius to pad boundary 
 MUTATOR_FACTOR = .01
 BOUNDARY = 300
 MAX_ITER = int(1e9)
@@ -66,8 +70,10 @@ def config_params(kwargs):
             kwargs['neighborhood'] = 'moore'
     if 'fixed_death_rate' not in kwargs:
             kwargs['fixed_death_rate'] = False
-    if 'death_rate' not in kwargs:
-            kwargs['death_rate'] = INIT_DEATH_RATE
+    if 'init_death_rate' not in kwargs:
+            kwargs['init_death_rate'] = INIT_DEATH_RATE
+    if 'init_birth_rate' not in kwargs:
+            kwargs['init_birth_rate'] = INIT_BIRTH_RATE
     if 'driver_advantage' not in kwargs:
             kwargs['driver_advantage'] = DRIVER_ADVANTAGE
     if 'driver_prob' not in kwargs:
@@ -82,8 +88,13 @@ def config_params(kwargs):
         kwargs['init_mut_prob'] = INIT_MUT_PROB
     if 'mutator_prob' not in kwargs:
         kwargs['mutator_prob'] = MUTATOR_PROB
+    if 'progression' not in kwargs:
+        kwargs['progression'] = None
     if 'exp_path' not in kwargs:
         kwargs['exp_path'] = PARAMS_PATH
+    if 'reps' not in kwargs:
+        kwargs['reps'] = 0
+
 
     
     #set dependent parameters, sanity checks
@@ -94,16 +105,30 @@ def config_params(kwargs):
     kwargs['neighbors'] = set_nbrs(kwargs['neighborhood'],kwargs['dim'])
 
     #write params to pkl file for rest of simulation to use
+    
     with open(PARAMS_PATH+'/params.pkl', 'wb') as outfile:
         pickle.dump(kwargs, outfile, protocol=pickle.HIGHEST_PROTOCOL)    
     #write params to experiment location 
+    Path(kwargs['exp_path']).mkdir(parents=True, exist_ok=True)
     with open(kwargs['exp_path']+'/params.pkl', 'wb') as outfile:
         pickle.dump(kwargs, outfile, protocol=pickle.HIGHEST_PROTOCOL)    
     return kwargs
   
     
-import simulation
-
+def simulateTumor(**kwargs):
+    params = config_params(kwargs)
+    rep = 0
+    while rep<params['reps']:
+        sim = classes.Simulation(params)
+        sim.run(rep) 
+        #simulation.plot_slice(sim.tumor)
+        rep+=1
+    return sim
 
 if __name__ == '__main__': 
-    pass
+    import simulation
+    exp_path = 'Documents/current/tumor_stuff/exp1'
+    out = simulateTumor(dim =3, fixed_death_rate = True,init_death_rate = 0,n_cells = 10000,exp_path = exp_path,reps=3)
+    #print(out.tumor.hit_bound)
+    #simulation.plot_tumor(out.tumor)
+    
