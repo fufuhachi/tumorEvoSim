@@ -15,7 +15,9 @@ import sys
 def stopping_condition(tumor):
     nmax = classes.params['n_cells']
     imax = classes.params['max_iter']
-    return tumor.N == nmax or tumor.iter > imax or tumor.hit_bound
+    maxxed_cells = tumor.N == nmax
+    maxxed_iter = tumor.iter > imax
+    return maxxed_cells or maxxed_iter or tumor.hit_bound
 def run(tumor = None):
     t = []
     n = []
@@ -46,7 +48,7 @@ def plot_tumor(tumor,drivers=False):
     else:
         gens = [item.gen.ID for item in tumor.cells.items]
     graph[pos] = gens
-    if classes.params['dim'] ==2:
+    if len(tumor.graph.shape) ==2:
         graph[graph==0]=-np.max(graph.flatten())
         sns.heatmap(graph)
         plt.show()
@@ -54,7 +56,7 @@ def plot_tumor(tumor,drivers=False):
         print('not yet implemented!')
         raise(NotImplementedError)
 def plot_slice(tumor, ax = 0):
-    if classes.params['dim']==2:
+    if len(tumor.graph.shape)==2:
         plot_tumor(tumor)
     else:
         graph = tumor.graph.copy()
