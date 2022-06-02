@@ -1,11 +1,11 @@
 
-from ast import Index
+#from ast import Index
 import main
 import numpy as np
-import pandas as pd
+#import pandas as pd
 import pickle
-import sys
-import time
+#import sys
+#import time
 
 #classes and object methods
 class Simulation():
@@ -27,7 +27,7 @@ class Simulation():
             
             if self.tumor.iter%40000==0:
                 print(f'size = {self.tumor.N} at {int(self.tumor.t/365)} years {self.tumor.t%365} days')
-            if self.tumor.N%1000==0 and self.tumor.N!=prev:
+            if self.tumor.N%self.params['save_interval']==0 and self.tumor.N!=prev:
                 save_object(self, f'{self.params["exp_path"]}/rep={rep}_ncells={self.tumor.N}.pkl')
                 prev = self.tumor.N #only save same cell size once 
         #save final 
@@ -141,7 +141,8 @@ class Genotype():
             self.number-=1
 
     def __repr__(self):
-        return str(f'Genotype {self.ID} from {self.parent.ID} with {self.n_drivers} drivers')
+        parID = 'none' if self.parent is None else self.parent.ID
+        return str(f'Genotype {self.ID} from {parID} with {self.n_drivers} drivers')
     
 """Class containing Tumor object
     attributes:
@@ -313,6 +314,10 @@ def set_graph(params):
 def save_object(obj, filename):
     with open(filename, 'wb') as outp:  # Overwrites any existing file.
         pickle.dump(obj, outp, pickle.HIGHEST_PROTOCOL)
+def load_object(filename):
+    with open(filename,'rb') as outp:
+        obj = pickle.load(outp)
+        return obj
 """Class to allow for cells to be added, removed, and randomly selected
 Caveat: does not allow for efficient movement of cells unless key is cell ID
 """

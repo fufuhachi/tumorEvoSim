@@ -1,4 +1,5 @@
 #code for simulation
+from multiprocessing.dummy import Array
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -39,7 +40,7 @@ def int_to_rgb(RGBint):
     Green = (RGBint >> 8) & 255
     Red =   (RGBint >> 16) & 255
     return (Red, Blue, Green)
-def plot_tumor(tumor,drivers=False):
+def plot_tumor(tumor,drivers=False,trim = 0):
     graph = tumor.graph.copy()
     pos = np.array([np.array(item.pos) for item in tumor.cells.items])
     pos = tuple([tuple(row) for row in pos.T])
@@ -49,15 +50,16 @@ def plot_tumor(tumor,drivers=False):
         gens = [item.gen.ID for item in tumor.cells.items]
     graph[pos] = gens
     if len(tumor.graph.shape) ==2:
+        graph = graph[trim:-(1+trim),trim:-(1+trim)]
         graph[graph==0]=-np.max(graph.flatten())
-        sns.heatmap(graph)
+        sns.heatmap(graph,cbar= False,square = True)
         plt.show()
     else:
         print('not yet implemented!')
         raise(NotImplementedError)
-def plot_slice(tumor, ax = 0):
+def plot_slice(tumor, ax = 0,trim=0):
     if len(tumor.graph.shape)==2:
-        plot_tumor(tumor)
+        plot_tumor(tumor,trim)
     else:
         graph = tumor.graph.copy()
         pos = np.array([np.array(item.pos) for item in tumor.cells.items])
@@ -102,7 +104,7 @@ def get_genotype_dist(gens):
     bydriv = df.sort_values(by='n_drivers')
     return bypop,bydriv
 """plot top <topn> genotypes by population and numebr of driver mutations, return correlation between groups """
-def plot_genotype_dist(bypop, bydriv, topn = 10):
+def genotype_plot(bypop, bydriv, topn = 10):
     bypop.iloc[-topn:].plot.bar(x = 'clone', y='number')
    
     plt.show()
@@ -110,6 +112,9 @@ def plot_genotype_dist(bypop, bydriv, topn = 10):
     plt.show()
     plt.plot(bypop.iloc[-topn:]['clone'],(bypop['number'].sum()/bypop.iloc[-topn:]['number'])**2,'.')
     plt.show()
+def plot_genotype_dist(**kwargs):
+    bypop, bydriv = get_genotype_dist(gens)
+    genotype_plot(bypop = bypop, bydriv = bydriv, topn=10)
 def plot_growth(tumor):
     plt.scatter(tumor.t_traj, tumor.N_traj)
     plt.xlabel('time (days)')
@@ -133,7 +138,7 @@ inputs:
 outputs:
     vector of VAFs 
 """
-def bulk_sample(tumor, pos: tuple, length: int, depth: int = 0, cutoff: float=0):
+def bulk_sample(tumor, pos: tuple, length = None, depth: int = 0):
     #TODO 
     try:
         assert(len(tumor.graph.shape)==len(pos))
@@ -141,26 +146,111 @@ def bulk_sample(tumor, pos: tuple, length: int, depth: int = 0, cutoff: float=0)
         print(f'expected dimension {tumor.graph.shape} but got {len(pos)}')
         print('exiting...')
         sys.exit()
-    try:
-        assert(length%2==1)
-    except(AssertionError):
-        print('length must be odd')
-        print('exiting...')
-        sys.exit()
+   
     genmat = get_gen_graph(tumor)
-    l = (length-1)/2
+    if length is not None: 
+        try:
+            l = int((length-1)/2)
+            assert(length%2==1)
+        except(AssertionError):
+            print('length must be odd')
+            print('exiting...')
+            sys.exit()
+        try:
+            sample = genmat[pos[0]-l:pos[0]+l+1,pos[1]-l:pos[1]+l+1]
+            
+            if len(pos)==3:
+                sample = sample[:,:,pos[2]-l:pos[2]+l+1]
+            assert(sample.shape == (length, length))
+            
+        except(IndexError):
+            print('sample out of bounds')
+            print('exiting...')
+            sys.exit()
+        except(AssertionError):
+            print(f'dimensions of sample are wrong, expected ___ but got {sample.shape}')
+            print('exiting...')
+    else:
+        sample = genmat[genmat>0] #sample whole tumor
+    #get frequencies of genotypes
+    #gens, counts = np.unique(sample.flatten(),return_counts = True)
+
+   # for g in sample.flatten():
+   #     if g==1:
+   #         tumor.gens.get_item(g).neut = np.array([-1])
+   #     if g==2: 
+   #         print(tumor.gens.get_item(g).neut)
+   #     all_muts = np.append(all_muts, tumor.gens.get_item(g).neut)
+   #     all_muts = np.append(all_muts, tumor.gens.get_item(g).drivers)
+    
+    all_muts = map(lambda genid: get_muts(genid, tumor), sample.flatten())
+
+    all_muts = np.hstack(np.array(list(all_muts),dtype=object)).flatten()
+    muts, counts = np.unique(all_muts,return_counts = True)
+    vafs = counts/counts.sum() if counts.sum() > 0 else counts
+    #turn gens into VAFs
+    #get all mutations in set, 
+    
+    if depth <1:
+        m, f = muts, vafs
+    else:
+        #simulate sequence reads
+        m, f = sequence(muts, vafs, depth)
+    return m, f
+def genotype_sample(tumor, pos, length):
     try:
-        sample = genmat[pos[0]-l:pos[0]+l,pos[1]-l:pos[1]+l]
-        if len(pos)==3:
-            sample = sample[:,:,pos[2]-l:pos[2]+l]
-    except(IndexError):
-        print('sample out of bounds')
+        assert(len(tumor.graph.shape)==len(pos))
+    except(AssertionError):
+        print(f'expected dimension {tumor.graph.shape} but got {len(pos)}')
         print('exiting...')
         sys.exit()
-    #get frequencies of genotypes
+   
+    genmat = get_gen_graph(tumor)
+    if length is not None: 
+        try:
+            l = int((length-1)/2)
+            assert(length%2==1)
+        except(AssertionError):
+            print('length must be odd')
+            print('exiting...')
+            sys.exit()
+        try:
+            sample = genmat[pos[0]-l:pos[0]+l+1,pos[1]-l:pos[1]+l+1]
+            
+            if len(pos)==3:
+                sample = sample[:,:,pos[2]-l:pos[2]+l+1]
+            assert(sample.shape == (length, length))
+            
+        except(IndexError):
+            print('sample out of bounds')
+            print('exiting...')
+            sys.exit()
+        except(AssertionError):
+            print(f'dimensions of sample are wrong, expected ___ but got {sample.shape}')
+            print('exiting...')
+    else:
+        sample = genmat[genmat>0]
+    print(sample)
     gens, counts = np.unique(sample.flatten(),return_counts = True)
-    
-
+    return gens, counts/counts.sum()
+def get_muts(genID,tumor):
+    if genID==0:
+        return np.array([])
+    gen = tumor.gens.get_item(genID)
+    #if genID==1:
+       #neut = np.array([-1])
+    return np.append(gen.neut, gen.drivers)
+"""Given a list of mutations and their frequencies, simulate bulk sequencing in the manner of
+Chkhaidze et al: 
+Get coverage with distribution pois(depth) for each mutation
+Get get frequency as binom(vaf, coverage)
+return only those greater than cutoff
+"""
+def sequence(muts, vafs,depth):
+    coverage = np.random.poisson(depth, muts.shape[0])
+    sampled_vafs = np.array([np.random.binomial(cov, f) for f, cov in zip(vafs, coverage)])
+    sampled_vafs = sampled_vafs/coverage
+    return muts, sampled_vafs
     
 """return lattice populated by genotypes"""
 def get_gen_graph(tumor):
