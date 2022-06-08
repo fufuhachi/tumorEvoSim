@@ -1,7 +1,8 @@
 
 #from ast import Index
-import main
+
 import numpy as np
+
 #import pandas as pd
 import pickle
 #import sys
@@ -28,6 +29,7 @@ class Simulation():
             if self.tumor.iter%40000==0:
                 print(f'size = {self.tumor.N} at {int(self.tumor.t/365)} years {self.tumor.t%365} days')
             if self.tumor.N%self.params['save_interval']==0 and self.tumor.N!=prev:
+                #print(f'saving with driviers {self.tumor.drivers}') #DEBUG
                 save_object(self, f'{self.params["exp_path"]}/rep={rep}_ncells={self.tumor.N}.pkl')
                 prev = self.tumor.N #only save same cell size once 
         #save final 
@@ -45,6 +47,10 @@ class Cell():
         self.ID = ID
         self.pos = pos #nonneg DIM-tuple 
         self.gen = gen #Genotype 
+        #self.death_rate = self.sim.params['init_death_rate'] if self.sim.params['fixed_death_rate'] else self.sim.params['init_death_rate']*np.power(self.sim.params['driver_dr_factor'], self.gen.n_drivers)
+        
+    def get_death_rate(self):
+        return self.sim.params['dr_function'](self,**self.sim.params['dr_params'])
         
     """mutate function depends only on tumor-level mutation order (infinite allele assumption)
         Samples poisson-distributed number of neutral mutations, driver mutations, and mutator mutations 
@@ -64,16 +70,16 @@ class Cell():
                 drivers = None
                 mutators = None
                 if n_neuts>0:
-                    neutral = np.append(self.gen.neut, range(n,n+n_neuts))
+                    neutral = np.append(self.gen.neut, np.arange(n,n+n_neuts))
                     n+=n_neuts
                 if n_drivers >0:
-                    print(f"driver at size {self.sim.tumor.N}")
-                    drivers = np.append(self.gen.drivers, range(n,n+n_drivers))
+                    print(f"drivers {np.arange(n,n+n_drivers)} at size {self.sim.tumor.N}")
+                    drivers = np.append(self.gen.drivers, np.arange(n,n+n_drivers))
                     n+=n_drivers
                     
                 if n_mutators >0:
                     print(f"mutator at size {self.sim.tumor.N}")
-                    mutators = np.append(self.gen.mutators, range(n,n+n_mutators))
+                    mutators = np.append(self.gen.mutators, np.arange(n,n+n_mutators))
                     n+=n_mutators
                 new_gen = Genotype(sim = self.sim,ID = self.sim.tumor.gens.len()+1, parent = self.gen, neutral = neutral, drivers =drivers, mutators = mutators)
                 
@@ -119,25 +125,25 @@ class Genotype():
         self.n_drivers = self.drivers.shape[0]
         self.mutators = np.array([], dtype = int) if mutators is None else mutators
         self.n_mutators = self.mutators.shape[0] #TODO: justify mutator 
-        self.death_rate = self.sim.params['init_death_rate'] if self.sim.params['fixed_death_rate'] else self.sim.params['init_death_rate']*np.power(self.sim.params['driver_dr_factor'], self.n_drivers)
         self.neut_rate = self.sim.params['init_mut_prob']*np.power(self.sim.params['mutator_factor'], self.n_mutators)
         self.driver_rate = self.sim.params['driver_prob']*np.power(self.sim.params['mutator_factor'], self.n_mutators)
         self.mutator_rate = self.sim.params['mutator_prob']*np.power(self.sim.params['mutator_factor'], self.n_mutators)
+       
         self.parent = parent
         self.children = np.array([],dtype = int)
         self.number = 1
         
         #add genotype to genotype list
     def add(self):
-        self.sim.tumor.add_driver_count(self.n_drivers)
+        #self.sim.tumor.add_driver_count(self.n_drivers) #not necessary if death rate is not divided by dmax 
         self.number+=1
     def remove(self):
         if self.number ==0:
             print("call to remove extinct genotype!!")
             raise(Exception)
         else:
-            if self.number==1:
-                self.sim.tumor.remove_driver_count(self.n_drivers)
+            #if self.number==1:
+            #    self.sim.tumor.remove_driver_count(self.n_drivers)
             self.number-=1
 
     def __repr__(self):
@@ -189,10 +195,10 @@ class Tumor():
         
         
         self.hit_bound = False 
-        self.drivers = np.array([]) 
-        self.driver_counts = np.array([]) #ascending sorted list of number of drivers in each genotype
+        self.drivers = np.array([],dtype = int) 
+        self.driver_counts = np.array([], dtype = int) #ascending sorted list of number of drivers in each genotype
         self.max_drivers = 0
-        self.mutators = np.array([])
+        self.mutators = np.array([], dtype = int)
         self.iter = 1
         self.t = 0
 
@@ -258,7 +264,8 @@ class Tumor():
             #print(f'cell pop is now: {self.cells}')
             #mutate daughter cell, sample to determine whether to kill parent cell. If no, mutate parent cell 
             new_cell.default_mutate()
-            if np.random.random() <gen.death_rate/self.dmax:
+           # if np.random.random() <gen.death_rate/self.dmax:
+            if np.random.random() < cell.get_death_rate():
                 #kill cell
                 #print(f'{cell} died')
                 self.remove_cell(cell)
@@ -299,12 +306,9 @@ class Tumor():
     def __repr__(self):
         return str(self.graph)
 
-
-
 def check_bound(arr, boundary):
         return (arr==boundary-1).any() or (arr==0).any()
   
-
 def set_graph(params):
     l = int(params['boundary'])
     d = int(params['dim'])
@@ -357,12 +361,28 @@ def set_periodic_death_rate(by = 'time',interval = None):
         #TODO
         pass
         return interval
+
+
+"""Using params file, get cell death rate for a given configuration"""
+
+def one_fixed_death_rate(cell,death_rate):
+    return death_rate
+    
+def one_changing_death_rate(cell,init_death_rate,driver_dr_factor):
+    return init_death_rate*np.power(driver_dr_factor, cell.gen.n_drivers)
+    
+def radial_death_rate(cell,radius, inner_rate, outer_rate, driver_dr_factor):
+    a = np.array(cell.pos)
+    b = np.array(cell.sim.tumor.center)
+    if np.linalg.norm(a-b) < radius:
+        return inner_rate*np.power(driver_dr_factor, cell.gen.n_drivers)
+    return outer_rate*np.power(driver_dr_factor, cell.gen.n_drivers)
+
 def programmed_death_rate(time, start=60,end=130,dr1 = .1, dr2 = .65, ):
     if time < start or time > end:
         return dr1
     return dr2
     
 if __name__ == "__main__":
-   
-    pass
     
+   pass

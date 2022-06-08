@@ -2,6 +2,7 @@
 from multiprocessing.dummy import Array
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import classes
@@ -9,6 +10,7 @@ import time
 from scipy.stats import binned_statistic
 import argparse 
 import sys
+import utils
 #simulation code
 #simulation overview (following Chkaidze et al. 2019):
 #set up 2d or 3d grid
@@ -53,7 +55,7 @@ def plot_tumor(tumor,drivers=False,trim = 0):
         graph = graph[trim:-(1+trim),trim:-(1+trim)]
         graph[graph==0]=-np.max(graph.flatten())
         sns.heatmap(graph,cbar= False,square = True)
-        plt.show()
+        #plt.show()
     else:
         print('not yet implemented!')
         raise(NotImplementedError)
@@ -120,6 +122,40 @@ def plot_growth(tumor):
     plt.xlabel('time (days)')
     plt.ylabel('size (cells)')
     plt.show()
+def plot_drivers(tumor, by_fitness = False):
+    if not by_fitness:
+        graph = get_driver_graph(tumor)
+        ids, counts = np.unique(graph.flatten(), return_counts = True)
+        ids = ids[2:]
+        counts = counts[2:]
+        img = graph.copy()
+        scale = 100
+        for i, clone in enumerate(ids):
+            img[img==clone] = scale*(i+1)+200
+            img[img > scale*len(ids)] = 0
+            img[img<0] = -scale*len(ids)
+        #cmap = matplotlib.colors.ListedColormap ( np.random.rand ( 256,3)),
+        sns.heatmap(img,cmap = 'ocean',cbar = False)
+    else:
+        graph = get_fitness_graph(tumor)
+        ids, counts = np.unique(graph.flatten(), return_counts = True)
+        ids = ids[2:]
+        counts = counts[2:]
+        
+        ax = sns.heatmap(graph)
+        
+    #plt.show()
+    #df = pd.DataFrame([ids, counts]).T
+    #df.plot.bar(x = 0,y=1)
+    #plt.xlabel('driver mutation ID')
+    #plt.ylabel('count')
+    #plt.show()
+    return ids, counts, ax
+"""given an axis object, plot a circle of radius r from the center. Return axis with circle drawn"""
+def plot_circle(ax, center, r):
+    circ = plt.Circle(center, r, color='g', fill = False)
+    ax.add_patch(circ)
+    return ax
 """function to save entire tumor object and all related objects to folder"""
 def save_tumor(tumor):
     #TODO
@@ -172,6 +208,8 @@ def bulk_sample(tumor, pos: tuple, length = None, depth: int = 0):
             print('exiting...')
     else:
         sample = genmat[genmat>0] #sample whole tumor
+    
+    
     #get frequencies of genotypes
     #gens, counts = np.unique(sample.flatten(),return_counts = True)
 
@@ -182,7 +220,7 @@ def bulk_sample(tumor, pos: tuple, length = None, depth: int = 0):
    #         print(tumor.gens.get_item(g).neut)
    #     all_muts = np.append(all_muts, tumor.gens.get_item(g).neut)
    #     all_muts = np.append(all_muts, tumor.gens.get_item(g).drivers)
-    
+
     all_muts = map(lambda genid: get_muts(genid, tumor), sample.flatten())
 
     all_muts = np.hstack(np.array(list(all_muts),dtype=object)).flatten()
@@ -251,7 +289,30 @@ def sequence(muts, vafs,depth):
     sampled_vafs = np.array([np.random.binomial(cov, f) for f, cov in zip(vafs, coverage)])
     sampled_vafs = sampled_vafs/coverage
     return muts, sampled_vafs
-    
+"""sample entire outer shell starting from a proportion of the tumor radius
+inputs: tumor (Tumor)
+        prop  (float)
+outputs: muts (np array)
+        vafs (np array)
+"""
+def shell_sample(tumor, prop):
+    r = utils.calc_radius(tumor.N, dim = len(tumor.graph.shape))
+    shift = r*prop
+    dist = get_dist_matrix(tumor.graph.shape, tumor.center)
+    g = tumor.graph
+    cells = g[dist > shift][g > 0]
+    gens, counts = np.unique(cells.flatten(),return_counts = True)
+    return gens, counts
+def get_dist_matrix(shape, center):
+    n = shape[0]
+    if len(shape)==2:
+        grid = np.ogrid[0:n,0:n]
+        dist = np.sqrt((grid[0]-center[0])**2 + (grid[1]-center[1])**2)
+    else:
+        grid = np.ogrid[0:n,0:n,0:n]
+        dist = np.sqrt((grid[0]-center[0])**2 + (grid[1]-center[1])**2 + (grid[2]-center[2])**2)
+    return dist
+
 """return lattice populated by genotypes"""
 def get_gen_graph(tumor):
     graph = tumor.graph.copy()
@@ -260,17 +321,24 @@ def get_gen_graph(tumor):
     gens = [item.gen.ID for item in tumor.cells.items]
     graph[pos] = gens
     return graph
-
-
+"""return lattice populated by unique driver clones"""
+def get_driver_graph(tumor):
+    graph = tumor.graph.copy()
+    graph[graph==0] = -1
+    pos = np.array([np.array(item.pos) for item in tumor.cells.items])
+    pos = tuple([tuple(row) for row in pos.T])
+    drivs = [item.gen.drivers[-1] if item.gen.n_drivers > 0 else 0 for item in tumor.cells.items]
+    graph[pos] = drivs
+    return graph
+"""get lattice populated by number of driver mutations"""
+def get_fitness_graph(tumor):
+    graph = tumor.graph.copy()
+    graph[graph==0] = -1
+    pos = np.array([np.array(item.pos) for item in tumor.cells.items])
+    pos = tuple([tuple(row) for row in pos.T])
+    fitns = [item.gen.n_drivers for item in tumor.cells.items]
+    graph[pos] = fitns
+    return graph
    
 if __name__=="__main__":
-    t0 = time.time()
-    out = run()
-    t1 = time.time()
-    print(t1-t0)
-    #plot_tumor(out)
-    gens = out.gens
-    pop, dr = get_genotype_dist(gens)
-    plot_genotype_dist(pop,dr)
-
-        
+    pass
