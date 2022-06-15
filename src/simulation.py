@@ -122,7 +122,7 @@ def plot_growth(tumor):
     plt.xlabel('time (days)')
     plt.ylabel('size (cells)')
     plt.show()
-def plot_drivers(tumor, by_fitness = False):
+def plot_drivers(tumor, by_fitness = False, vmin = None, vmax = None):
     if not by_fitness:
         graph = get_driver_graph(tumor)
         ids, counts = np.unique(graph.flatten(), return_counts = True)
@@ -142,7 +142,7 @@ def plot_drivers(tumor, by_fitness = False):
         ids = ids[2:]
         counts = counts[2:]
         
-        ax = sns.heatmap(graph)
+        ax = sns.heatmap(graph,vmin, vmax)
         
     #plt.show()
     #df = pd.DataFrame([ids, counts]).T

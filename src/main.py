@@ -1,5 +1,4 @@
 #file with end-user functions to set parameters and run simulation 
-from tabnanny import check
 import numpy as np
 import pickle
 import classes
@@ -7,6 +6,7 @@ import os
 from pathlib import Path
 import sys
 import inspect
+import json
 
 #absolute path to parameter file 
 PARAMS_PATH = '/Users/trachman/Documents/current/tumor_stuff/tumorEvoSim/src' #change to program directory 
@@ -54,7 +54,7 @@ def programmed_death_rate(time, start=60,end=130,dr1 = .1, dr2 = .65, ):
         return dr1
     return dr2
 
-DR_FUNCTIONS = {'default_death_rate': one_fixed_death_rate,
+DR_FUNCTIONS = {'default': one_fixed_death_rate,
 'radial':radial_death_rate,'one_changing_death_rate':programmed_death_rate}
 
 DR_PARAMS = dict() 
@@ -91,18 +91,35 @@ def set_nbrs(neighborhood = 'moore', dim = DIM):
 
     
 NBRS = set_nbrs()
+
 def get_kwargs_from_file(path):
-    #TODO
-    raise(NotImplementedError)
+    if path is None:
+        return {}
+
+    ext = path.split('.')[-1]
+    obj = None
+    if ext == 'pkl':
+        obj =  classes.load_object(path)
+    if ext == 'txt':
+        with open(path,'r') as f:
+            obj = json.load(f)
+        f.close()
+    try:
+        assert(type(obj) is dict)
+    except(AssertionError):
+        print(f'expected dict but got {type(obj)}')
+        print('exiting...')
+        sys.exit() 
+    return obj
 def calc_radius(n_cells, dim):
     if dim==2:
         return np.sqrt(n_cells/np.pi)
     else:
         return np.cbrt(3*n_cells/4/np.pi)
-"""wrapper to take user parameters. Accepts a file or a set of keyword arguments """
+
+"""wrapper to handle user parameters. Accepts a file or a set of keyword arguments """
 def config_params(kwargs):
-    if 'filePath' in kwargs:
-        kwargs = get_kwargs_from_file(kwargs['filePath'])
+   
     if 'dim' not in kwargs:
             kwargs['dim']=DIM
     if 'n_cells' not in kwargs:
@@ -115,6 +132,7 @@ def config_params(kwargs):
             kwargs['fixed_death_rate'] = False
     if 'init_death_rate' not in kwargs:
             kwargs['init_death_rate'] = INIT_DEATH_RATE
+    kwargs['death_rate'] = kwargs['init_death_rate']
     if 'init_birth_rate' not in kwargs:
             kwargs['init_birth_rate'] = INIT_BIRTH_RATE
     if 'driver_advantage' not in kwargs:
@@ -147,7 +165,7 @@ def config_params(kwargs):
 
     print('starting sanity checks...')
     if 'dr_function' not in kwargs:
-        kwargs['dr_funciton'] = 'default_death_rate'
+        kwargs['dr_function'] = DR_FUNCTIONS['default']
     else:
         try:
             kwargs['dr_function'] = DR_FUNCTIONS[kwargs['dr_function']]
@@ -155,7 +173,7 @@ def config_params(kwargs):
             print('death rate function not defined')
             print('exiting...')
             sys.exit()
-    
+   
     #set dependent parameters, sanity checks
     kwargs['driver_dr_factor'] = 1-kwargs['driver_advantage'] #death rate factor
     r = calc_radius(kwargs['n_cells'],kwargs['dim'])
@@ -194,17 +212,25 @@ def simulateTumor(**kwargs):
     params = config_params(kwargs)
     rep = params['rep_start']
     sim_list = []
+    print('starting simulation...')
     while rep<params['reps']:
         sim = classes.Simulation(params)
         sim.run(rep) 
-        #simulation.plot_slice(sim.tumor)
         sim_list.append(sim)
         rep+=1
-    return sim
+    print('done!')
+    return sim_list[0] if len(sim_list)==1 else sim_list
 
 if __name__ == '__main__': 
-    import simulation
-    import matplotlib.pyplot as plt
+    try:
+        config_file = sys.argv[1]
+    except(IndexError):
+        config_file = None
+    kwargs = get_kwargs_from_file(config_file)
+    out = simulateTumor(**kwargs)
+    
+    #import simulation
+    #import matplotlib.pyplot as plt
     #exp_path = 'Documents/current/tumor_stuff/hi_s_2d'
     #out = simulateTumor(dim =2, driver_advantage = 4,n_cells = 100000,exp_path = exp_path)
     #print(out.tumor.hit_bound)
@@ -212,17 +238,16 @@ if __name__ == '__main__':
     #simulation.plot_slice(out.tumor,ax = 'y')
     #simulation.plot_slice(out.tumor,ax = 'z')
     
-    dr_params = {'radius':10 ,'inner_rate': .1 ,'outer_rate': .9}
-    for r in [0,10,15,20,30,40,45,50]:
-        exp_path = f'../test/r={r}_di=.9_do=.1'
-    #for r in [1,2,3]:
-        dr_params = {'radius':r ,'inner_rate': .9 ,'outer_rate': .1}
-        out = simulateTumor(dim =2, driver_advantage = .5,n_cells = 20000,exp_path = exp_path, driver_prob = 1e-2, dr_function = 'radial', dr_params = dr_params, save_interval= 5000)
+    #dr_params = {'radius':10 ,'inner_rate': .1 ,'outer_rate': .9}
+    #for r in [0,10,15,20,30,40,45,50]:
+        #exp_path = f'../test/r={r}_di=.9_do=.1'
+    
+        #dr_params = {'radius':r ,'inner_rate': .9 ,'outer_rate': .1}
+        #out = simulateTumor(dim =2, driver_advantage = .5,n_cells = 20000,exp_path = exp_path, driver_prob = 1e-2, dr_function = 'radial', dr_params = dr_params, save_interval= 5000)
         #ax = simulation.plot_drivers(out.tumor, by_fitness = True)[2]
         #ax = simulation.plot_circle(ax, out.tumor.center, r)
         #ax.set_title(f'r = {r}, inner dr = {dr_params["inner_rate"]}, outer dr = {dr_params["outer_rate"]}')
         #plt.show()
     #simulation.plot_tumor(out.tumor)
-    
     
     
