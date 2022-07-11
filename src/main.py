@@ -9,7 +9,7 @@ import inspect
 import json
 
 #absolute path to parameter file 
-PARAMS_PATH = '/Users/trachman/Documents/current/tumor_stuff/tumorEvoSim/src' #change to program directory 
+PARAMS_PATH = '' #change to program directory 
 #defualt parameters: 
 DIM = 2
 INIT_BIRTH_RATE = 1#np.log(2)
