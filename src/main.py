@@ -31,9 +31,14 @@ MUTATOR_PROB = 0#4e-6 #need to implement way of increasing mutation probability 
 PROGRAMMED_DEATH_RATE = False
 SEED = 123
 #SAVE_INTERVAL = 1000 #number of cells to save after 
-
+"""return spherical radius of tumor"""
+def calc_radius(n_cells, dim):
+    if dim==2:
+        return np.sqrt(n_cells/np.pi)
+    else:
+        return np.cbrt(3*n_cells/4/np.pi)
+        
 """Using params file, get cell death rate for a given configuration"""
-
 def one_fixed_death_rate(cell,death_rate):
     return death_rate
     
@@ -48,6 +53,28 @@ def radial_death_rate(cell,radius, inner_rate, outer_rate, driver_dr_factor):
         return inner_rate*np.power(driver_dr_factor, cell.gen.n_drivers)
     #print('out')
     return outer_rate*np.power(driver_dr_factor, cell.gen.n_drivers)
+def radial_prop_death_rate(cell, prop, inner_rate, outer_rate, driver_dr_factor):
+    """ inner death rate if within prop% of radius, otherwise inner"""
+    n_cells = cell.sim.tumor.N 
+    n_driv = cell.gen.n_drivers
+    r = calc_radius(n_cells, cell.sim.params['dim']) #assuming 2 dimensions out of laziness
+    a = np.array(cell.pos)
+    b = np.array(cell.sim.tumor.center)
+    #print(f'r = {r}')
+    #print(f'dist = {np.linalg.norm(a-b)} and prop*r = {prop*r}')
+    if np.linalg.norm(a-b) < prop*r:
+        #print('inside radius')
+        return inner_rate*np.power(driver_dr_factor, n_driv)
+    #print('outside radius')
+    return outer_rate*np.power(driver_dr_factor,n_driv)
+
+
+def radial_gradient_death_rate(cell, radius, inner_rate, outer_rate, driver_dr_factor):
+    """Rather than the death rate changing at a fixed radius, death rate changes as a gradient """
+
+def radial_random_death_rate(cell, radius, inner_rate, outer_rate, dirver_dr_factor):
+    """"""
+    
 
 def programmed_death_rate(time, start=60,end=130,dr1 = .1, dr2 = .65, ):
     if time < start or time > end:
@@ -55,7 +82,8 @@ def programmed_death_rate(time, start=60,end=130,dr1 = .1, dr2 = .65, ):
     return dr2
 
 DR_FUNCTIONS = {'default': one_fixed_death_rate,
-'radial':radial_death_rate,'one_changing_death_rate':programmed_death_rate}
+'radial':radial_death_rate,'one_changing_death_rate':programmed_death_rate, 
+'radial_prop': radial_prop_death_rate}
 
 DR_PARAMS = dict() 
 
