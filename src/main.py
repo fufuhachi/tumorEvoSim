@@ -57,7 +57,7 @@ def radial_prop_death_rate(cell, prop, inner_rate, outer_rate, driver_dr_factor)
     """ inner death rate if within prop% of radius, otherwise inner"""
     n_cells = cell.sim.tumor.N 
     n_driv = cell.gen.n_drivers
-    r = calc_radius(n_cells, cell.sim.params['dim']) #assuming 2 dimensions out of laziness
+    r = calc_radius(n_cells, cell.sim.params['dim']) 
     a = np.array(cell.pos)
     b = np.array(cell.sim.tumor.center)
     #print(f'r = {r}')
@@ -69,12 +69,36 @@ def radial_prop_death_rate(cell, prop, inner_rate, outer_rate, driver_dr_factor)
     return outer_rate*np.power(driver_dr_factor,n_driv)
 
 
-def radial_gradient_death_rate(cell, radius, inner_rate, outer_rate, driver_dr_factor):
-    """Rather than the death rate changing at a fixed radius, death rate changes as a gradient """
 
-def radial_random_death_rate(cell, radius, inner_rate, outer_rate, dirver_dr_factor):
-    """"""
-    
+def radial_bern_death_rate(cell, inner_rate, outer_rate, driver_dr_factor):
+    """death rate outer_rate with prob p = min(d(cell, center)/radius,1) and inner_rate with 
+    prob 1-p
+    """
+    n_cells = cell.sim.tumor.N 
+    n_driv = cell.gen.n_drivers
+    r = calc_radius(n_cells, cell.sim.params['dim']) 
+    a = np.array(cell.pos)
+    b = np.array(cell.sim.tumor.center)
+    prop = np.linalg.norm(a-b)/r
+    if np.random.random() < prop:
+        return outer_rate*np.power(driver_dr_factor, n_driv)
+    return inner_rate*np.power(driver_dr_factor, n_driv)
+
+def radial_gauss_death_rate(cell, prop, inner_std, inner_rate, outer_std, outer_rate, driver_dr_factor):
+    """death rate is """
+    n_cells = cell.sim.tumor.N 
+    n_driv = cell.gen.n_drivers
+    r = calc_radius(n_cells, cell.sim.params['dim']) 
+    a = np.array(cell.pos)
+    b = np.array(cell.sim.tumor.center)
+    rate, std = inner_rate, inner_std if np.linalg.norm(a-b) < prop*r else outer_rate, outer_std
+    out =  np.random.normal(rate, std)*np.power(driver_dr_factor, n_driv)
+    if out < 0:
+        return 0
+    elif out > 1:
+        return 1
+    return out 
+
 
 def programmed_death_rate(time, start=60,end=130,dr1 = .1, dr2 = .65, ):
     if time < start or time > end:
