@@ -107,7 +107,8 @@ def programmed_death_rate(time, start=60,end=130,dr1 = .1, dr2 = .65, ):
 
 DR_FUNCTIONS = {'default': one_fixed_death_rate,
 'radial':radial_death_rate,'one_changing_death_rate':programmed_death_rate, 
-'radial_prop': radial_prop_death_rate, 'radial_bern': radial_bern_death_rate}
+'radial_prop': radial_prop_death_rate, 'radial_bern': radial_bern_death_rate, 
+'radial_gauss':radial_gauss_death_rate}
 
 DR_PARAMS = dict() 
 
