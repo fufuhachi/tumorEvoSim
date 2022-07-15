@@ -82,8 +82,8 @@ class Cell():
                     mutators = np.append(self.gen.mutators, np.arange(n,n+n_mutators))
                     n+=n_mutators
                 new_gen = Genotype(sim = self.sim,ID = self.sim.tumor.gens.len()+1, parent = self.gen, neutral = neutral, drivers =drivers, mutators = mutators)
-                
                 self.gen.children = np.append(self.gen.children, new_gen)
+                self.gen.remove()
                 self.gen = new_gen
                 self.sim.tumor.add_genotype(new_gen)
             self.sim.tumor.next_snp = n
@@ -362,26 +362,6 @@ def set_periodic_death_rate(by = 'time',interval = None):
         pass
         return interval
 
-
-"""Using params file, get cell death rate for a given configuration"""
-
-def one_fixed_death_rate(cell,death_rate):
-    return death_rate
-    
-def one_changing_death_rate(cell,init_death_rate,driver_dr_factor):
-    return init_death_rate*np.power(driver_dr_factor, cell.gen.n_drivers)
-    
-def radial_death_rate(cell,radius, inner_rate, outer_rate, driver_dr_factor):
-    a = np.array(cell.pos)
-    b = np.array(cell.sim.tumor.center)
-    if np.linalg.norm(a-b) < radius:
-        return inner_rate*np.power(driver_dr_factor, cell.gen.n_drivers)
-    return outer_rate*np.power(driver_dr_factor, cell.gen.n_drivers)
-
-def programmed_death_rate(time, start=60,end=130,dr1 = .1, dr2 = .65, ):
-    if time < start or time > end:
-        return dr1
-    return dr2
     
 if __name__ == "__main__":
     

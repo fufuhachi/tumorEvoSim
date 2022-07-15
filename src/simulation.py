@@ -135,7 +135,7 @@ def plot_drivers(tumor, by_fitness = False, vmin = None, vmax = None):
             img[img > scale*len(ids)] = 0
             img[img<0] = -scale*len(ids)
         #cmap = matplotlib.colors.ListedColormap ( np.random.rand ( 256,3)),
-        sns.heatmap(img,cmap = 'ocean',cbar = False)
+        sns.heatmap(img,cbar = False)
     else:
         graph = get_fitness_graph(tumor)
         ids, counts = np.unique(graph.flatten(), return_counts = True)
@@ -339,6 +339,7 @@ def get_fitness_graph(tumor):
     fitns = [item.gen.n_drivers for item in tumor.cells.items]
     graph[pos] = fitns
     return graph
+
    
 if __name__=="__main__":
     pass
