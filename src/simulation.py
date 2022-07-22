@@ -117,11 +117,12 @@ def genotype_plot(bypop, bydriv, topn = 10):
 def plot_genotype_dist(**kwargs):
     bypop, bydriv = get_genotype_dist(gens)
     genotype_plot(bypop = bypop, bydriv = bydriv, topn=10)
-def plot_growth(tumor):
-    plt.scatter(tumor.t_traj, tumor.N_traj)
+def plot_growth(tumor,**kwargs):
+    ax = plt.scatter(tumor.sim.t_traj, tumor.sim.N_traj,**kwargs)
     plt.xlabel('time (days)')
     plt.ylabel('size (cells)')
-    plt.show()
+    #plt.show()
+    return ax
 def plot_drivers(tumor, by_fitness = False, vmin = None, vmax = None):
     if not by_fitness:
         graph = get_driver_graph(tumor)
@@ -339,7 +340,33 @@ def get_fitness_graph(tumor):
     fitns = [item.gen.n_drivers for item in tumor.cells.items]
     graph[pos] = fitns
     return graph
+#####TREE ANALYSIS#####
+def J_shannon(node):
+    #not all recursive: one part is the subtree sums of all subtrees, one part is the recursive entropy calculation 
+    s_istar = subtree_sum_no_root(node)
+    w_i = 0
+    b = len(node.children)
+    if b>1:
+        for ch in node.children:
+            s_j = ch.number + subtree_sum_no_root(ch)
+            p_ij = s_j/s_istar
+            if s_j/s_istar>0:
+                w_i += -p_ij*np.log(p_ij)/np.log(b)
+    return (s_istar**2/(s_istar+node.number))*w_i
+"""return total number in subtree excluding the root"""
+def subtree_sum_no_root(node):
+    if len(node.children)==0:
+        return 0
+    else:
+        return np.sum([ch.number + subtree_sum_no_root(ch) for ch in node.children])
 
+def traverse_sum(node, f):
+    return f(node) + np.sum([traverse_sum(ch,f) for ch in node.children])
+def J_index(node):
+    return traverse_sum(node, J_shannon)/traverse_sum(node, subtree_sum_no_root)
+"""copy data from TreeNode object (skbio) to Node so that it has the attribute 'number' to allow for J_index"""
+def treeNode_to_Node(root, gen_list):
+    pass
    
 if __name__=="__main__":
     pass

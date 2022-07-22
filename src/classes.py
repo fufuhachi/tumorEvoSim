@@ -73,12 +73,12 @@ class Cell():
                     neutral = np.append(self.gen.neut, np.arange(n,n+n_neuts))
                     n+=n_neuts
                 if n_drivers >0:
-                    print(f"drivers {np.arange(n,n+n_drivers)} at size {self.sim.tumor.N}")
+                    #print(f"drivers {np.arange(n,n+n_drivers)} at size {self.sim.tumor.N}")
                     drivers = np.append(self.gen.drivers, np.arange(n,n+n_drivers))
                     n+=n_drivers
                     
                 if n_mutators >0:
-                    print(f"mutator at size {self.sim.tumor.N}")
+                    #print(f"mutator at size {self.sim.tumor.N}")
                     mutators = np.append(self.gen.mutators, np.arange(n,n+n_mutators))
                     n+=n_mutators
                 new_gen = Genotype(sim = self.sim,ID = self.sim.tumor.gens.len()+1, parent = self.gen, neutral = neutral, drivers =drivers, mutators = mutators)
@@ -135,7 +135,7 @@ class Genotype():
         
         #add genotype to genotype list
     def add(self):
-        #self.sim.tumor.add_driver_count(self.n_drivers) #not necessary if death rate is not divided by dmax 
+        #self.sim.tumor.add_driver_count(self.n_drivers) #not necessary if death rate is not divided by dmax #comment out! 
         self.number+=1
     def remove(self):
         if self.number ==0:
@@ -143,7 +143,7 @@ class Genotype():
             raise(Exception)
         else:
             #if self.number==1:
-            #    self.sim.tumor.remove_driver_count(self.n_drivers)
+                #self.sim.tumor.remove_driver_count(self.n_drivers) 
             self.number-=1
 
     def __repr__(self):
@@ -191,23 +191,24 @@ class Tumor():
            
         self.progression = self.params['progression']
         self.bmax = self.params['init_birth_rate']
-        self.dmax = self.params['max_death_rate']
+        
         
         
         self.hit_bound = False 
         self.drivers = np.array([],dtype = int) 
-        self.driver_counts = np.array([], dtype = int) #ascending sorted list of number of drivers in each genotype
+        self.driver_counts = np.array([], dtype = int) #ascending list of drivers
         self.max_drivers = 0
         self.mutators = np.array([], dtype = int)
         self.iter = 1
         self.t = 0
+        self.dmax = self.params['init_death_rate'] 
 
     """add a number of drivers: Rationale: Rather than use priority queue to track highest death rate, 
     use fact that death rate is function of number of driver mutations to index in constant time
     """
     def add_driver_count(self,n):
         if n+1 > self.driver_counts.shape[0]:
-            print('added driver count')
+            #print('added driver count')
             self.driver_counts = np.append(self.driver_counts, np.zeros(n+1-self.driver_counts.shape[0]))
             self.driver_counts[-1]=1
         else:
@@ -226,7 +227,7 @@ class Tumor():
                 self.driver_counts[n-1] = 0
                 self.dmax = self.get_dmax()
     def get_dmax(self):
-        min_driv =  self.driver_counts[self.driver_counts ==1][0]
+        min_driv =  self.driver_counts[0]
         return self.params['init_death_rate']*np.power(self.params['driver_dr_factor'], min_driv)
     """update the time of the simulation after a birth/death event """
     def update_time(self):
@@ -264,7 +265,7 @@ class Tumor():
             #print(f'cell pop is now: {self.cells}')
             #mutate daughter cell, sample to determine whether to kill parent cell. If no, mutate parent cell 
             new_cell.default_mutate()
-           # if np.random.random() <gen.death_rate/self.dmax:
+            #if np.random.random() <cell.get_death_rate()/self.dmax: #comment out! 
             if np.random.random() < cell.get_death_rate():
                 #kill cell
                 #print(f'{cell} died')
@@ -273,7 +274,12 @@ class Tumor():
                 cell.default_mutate()
                 
         return
-
+    """simplest pushing scheme: shift cells along specified lattice direction, update their positions, return position of new empty space
+        direction is one of the possible directions specified by the model (6, 8, 26)
+    """
+    def simple_pushing(self, start_pos, direction):
+        
+        pass
     """function to add cell to cell list, change relevant fields"""        
     def add_cell(self, born_cell):
         self.graph[born_cell.pos] = born_cell.ID
@@ -350,7 +356,8 @@ class ListDict(object):
         return self.items.shape[0]
     def __repr__(self):
         return f'{str([item.__repr__() for item in self.items])}'
-    
+
+ 
 """result of treatment: periodic changes in cell death rate"""
 def set_periodic_death_rate(by = 'time',interval = None):
     if by=='time':

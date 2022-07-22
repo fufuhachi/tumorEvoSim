@@ -16,7 +16,7 @@ INIT_BIRTH_RATE = 1#np.log(2)
 FIXED_DEATH_RATE = False
 DRIVER_ADVANTAGE = .1
 INIT_DEATH_RATE = .95*INIT_BIRTH_RATE
-MAX_DEATH_RATE = INIT_BIRTH_RATE
+MAX_DEATH_RATE = INIT_DEATH_RATE
 
 PAD = 5 #fraction of radius to pad boundary 
 MUTATOR_FACTOR = .01
@@ -105,12 +105,12 @@ def programmed_death_rate(time, start=60,end=130,dr1 = .1, dr2 = .65, ):
         return dr1
     return dr2
 
-DR_FUNCTIONS = {'default': one_fixed_death_rate,
+DR_FUNCTIONS = {'default': one_changing_death_rate,
 'radial':radial_death_rate,'one_changing_death_rate':programmed_death_rate, 
 'radial_prop': radial_prop_death_rate, 'radial_bern': radial_bern_death_rate, 
 'radial_gauss':radial_gauss_death_rate}
 
-DR_PARAMS = dict() 
+
 
 def check_fcn_args(fcn,params,kwargs):
     args = inspect.getfullargspec(fcn)[0]
@@ -213,7 +213,7 @@ def config_params(kwargs):
     if 'rep_start' not in kwargs:
         kwargs['rep_start'] = 0
     if 'dr_params' not in kwargs:
-        kwargs['dr_params'] = DR_PARAMS
+        kwargs['dr_params'] = dict()
     
 
     print('starting sanity checks...')
@@ -247,7 +247,7 @@ def config_params(kwargs):
         if 'driver_dr_factor' in kwargs['dr_params']:
             assert(kwargs['driver_dr_factor']==kwargs['dr_params']['driver_dr_factor'])
     except(AssertionError):
-        print('driver advantage must match')
+        print(f'driver advantage must match, dr_params has {kwargs["dr_params"]["driver_dr_factor"]} but params has {kwargs["driver_dr_factor"]}')
         print('exiting...')
         sys.exit() 
     #write params to pkl file for rest of simulation to use
@@ -270,6 +270,7 @@ def simulateTumor(**kwargs):
         sim = classes.Simulation(params)
         sim.run(rep) 
         sim_list.append(sim)
+        print('rep {rep} complete')
         rep+=1
     print('done!')
     return sim_list[0] if len(sim_list)==1 else sim_list
