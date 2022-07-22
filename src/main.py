@@ -208,15 +208,31 @@ def config_params(kwargs):
         kwargs['exp_path'] = PARAMS_PATH
     if 'reps' not in kwargs:
         kwargs['reps'] = 1
+    if 'first_rep' not in kwargs:
+        kwargs['first_rep'] = 0
+    if 'last_rep' not in kwargs:
+        kwargs['last_rep'] = kwargs['first_rep'] + kwargs['reps']
+    else:
+        kwargs['reps'] = kwargs['last_rep'] - kwargs['first_rep']+1
     if 'save_interval' not in kwargs:
         kwargs['save_interval'] = MAX_POP #only save one 
-    if 'rep_start' not in kwargs:
-        kwargs['rep_start'] = 0
     if 'dr_params' not in kwargs:
         kwargs['dr_params'] = dict()
     
 
+    
+
     print('starting sanity checks...')
+    #check replicate number validity
+    if kwargs['first_rep'] < 0 or kwargs['last_rep'] < 0 or kwargs['reps'] < 0:
+        print('first_rep, last_rep, and reps must be nonnegative \n exiting...')
+        sys.exit() 
+    if kwargs['last_rep'] - kwargs['first_rep'] +1 != kwargs['reps']:
+        print(f'last_rep ({kwargs["last_rep"]}) - first_rep ({kwargs["first_rep"]}) +1 must equal number of reps ({kwargs["reps"]})  \n exiting...')
+        sys.exit()
+    
+        
+    #check death rate function validity
     if 'dr_function' not in kwargs:
         kwargs['dr_function'] = DR_FUNCTIONS['default']
     else:
@@ -263,17 +279,17 @@ def config_params(kwargs):
     
 def simulateTumor(**kwargs):
     params = config_params(kwargs)
-    rep = params['rep_start']
+    first_rep = params['first_rep']
+    cur_rep = first_rep
     sim_list = []
+    last_rep = params['last_rep']
     print('starting simulation...')
-    print(f'rep = {rep}')
-    print(f'reps = {params["reps"]}')
-    while rep<params['reps']:
+    while cur_rep < last_rep +1: 
         sim = classes.Simulation(params)
-        sim.run(rep) 
+        sim.run(cur_rep) 
         sim_list.append(sim)
-        print(f'rep {rep} complete')
-        rep+=1
+        print(f'rep {cur_rep} complete')
+        cur_rep+=1
     print('done!')
     return sim_list[0] if len(sim_list)==1 else sim_list
 
