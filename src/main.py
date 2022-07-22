@@ -266,11 +266,13 @@ def simulateTumor(**kwargs):
     rep = params['rep_start']
     sim_list = []
     print('starting simulation...')
+    print(f'rep = {rep}')
+    print(f'reps = {rep}')
     while rep<params['reps']:
         sim = classes.Simulation(params)
         sim.run(rep) 
         sim_list.append(sim)
-        print('rep {rep} complete')
+        print(f'rep {rep} complete')
         rep+=1
     print('done!')
     return sim_list[0] if len(sim_list)==1 else sim_list
