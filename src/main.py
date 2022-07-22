@@ -267,7 +267,7 @@ def simulateTumor(**kwargs):
     sim_list = []
     print('starting simulation...')
     print(f'rep = {rep}')
-    print(f'reps = {rep}')
+    print(f'reps = {params["reps"]}')
     while rep<params['reps']:
         sim = classes.Simulation(params)
         sim.run(rep) 
