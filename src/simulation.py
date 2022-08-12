@@ -226,7 +226,7 @@ def bulk_sample(tumor, pos: tuple, length = None, depth: int = 0):
 
     all_muts = np.hstack(np.array(list(all_muts),dtype=object)).flatten()
     muts, counts = np.unique(all_muts,return_counts = True)
-    vafs = counts/counts.sum() if counts.sum() > 0 else counts
+    vafs = counts/len(sample) if counts.sum() > 0 else counts
     #turn gens into VAFs
     #get all mutations in set, 
     
@@ -297,7 +297,7 @@ outputs: muts (np array)
         vafs (np array)
 """
 def shell_sample(tumor, prop):
-    r = utils.calc_radius(tumor.N, dim = len(tumor.graph.shape))
+    r = calc_radius(tumor.N, dim = len(tumor.graph.shape))
     shift = r*prop
     dist = get_dist_matrix(tumor.graph.shape, tumor.center)
     g = tumor.graph
@@ -340,7 +340,45 @@ def get_fitness_graph(tumor):
     fitns = [item.gen.n_drivers for item in tumor.cells.items]
     graph[pos] = fitns
     return graph
+#####Radial Stuff######
+"""take 2d lattice populated by some feature (genotype ID, cell ID, # drivers etc), return pd dataframe
+with x and y coords and radius from center"""
+def radial_cluster(mat,center):
+    #turn nxn into n^2 x 3 
+    mat  = mat.copy() 
+    x, y = np.indices(mat.shape)
+    x = x.ravel(order='F')
+    y = y.ravel(order='F')
+    values = mat.ravel(order='F')
+    feats =  np.array([x, y, values]).T
+    feats = pd.DataFrame(feats, columns = ['x','y','val'])
+    feats = feats[feats.val != -1]
+    feats['x']-= center[0]
+    feats['y']-=center[1]
+    feats['r'] = np.sqrt(feats['x']**2 + feats['y']**2)
+    feats['theta'] = np.arctan(feats['x']/feats['y'])
+    return feats
+
+def calc_radius(n_cells, dim):
+    if dim==2:
+        return np.sqrt(n_cells/np.pi)
+    else:
+        return np.cbrt(3*n_cells/4/np.pi)
 #####TREE ANALYSIS#####
+class Node():
+    def __init__(self, ID, parent, children = None, number = 1):
+        self.ID = ID
+        self.parent = parent
+        if type(children) is not list:
+            self.children = []
+        else:
+            self.children = children
+        self.number = number 
+    def __repr__(self):
+        return f'ID: {self.ID} Num: {self.number} Par: {self.parent.ID if self.parent is not None else "None"} Ch: {[child.ID for child in self.children]}'
+    def copy(self):
+        return Node(self.ID, self.parent, self.children, self.number)
+
 def J_shannon(node):
     #not all recursive: one part is the subtree sums of all subtrees, one part is the recursive entropy calculation 
     s_istar = subtree_sum_no_root(node)
@@ -363,10 +401,10 @@ def subtree_sum_no_root(node):
 def traverse_sum(node, f):
     return f(node) + np.sum([traverse_sum(ch,f) for ch in node.children])
 def J_index(node):
+    if subtree_sum_no_root(node)+node.number <1:
+        return 0
     return traverse_sum(node, J_shannon)/traverse_sum(node, subtree_sum_no_root)
 """copy data from TreeNode object (skbio) to Node so that it has the attribute 'number' to allow for J_index"""
-def treeNode_to_Node(root, gen_list):
-    pass
-   
+
 if __name__=="__main__":
     pass

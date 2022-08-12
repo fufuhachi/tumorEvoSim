@@ -23,19 +23,28 @@ class Simulation():
     
     def run(self,rep=0):
         prev = 0
+        animate_it = False
+        if 'frame_rate' in self.params:
+            animate_it = True
         while not self.stopping_condition():
             self.tumor.iterate()
-            
             if self.tumor.iter%40000==0:
                 print(f'size = {self.tumor.N} at {int(self.tumor.t/365)} years {self.tumor.t%365} days')
             if self.tumor.N%self.params['save_interval']==0 and self.tumor.N!=prev:
                 #print(f'saving with driviers {self.tumor.drivers}') #DEBUG
                 save_object(self, f'{self.params["exp_path"]}/rep={rep}_ncells={self.tumor.N}.pkl')
                 prev = self.tumor.N #only save same cell size once 
+            if animate_it:
+                self.animate(rep)
         #save final 
         save_object(self, f'{self.params["exp_path"]}/rep={rep}_ncells={self.tumor.N}.pkl')
         return self.tumor
-    
+
+    def animate(self,rep):
+        if self.tumor.N%self.params['frame_rate']==0:
+            np.savetxt(f'{self.params["exp_path"]}/anim/rep={rep}_{self.tumor.N}.npz',self.tumor.graph)
+            
+        
 #classes and object methods
         
 class Cell():

@@ -30,6 +30,7 @@ DRIVER_PROB = 4e-5
 MUTATOR_PROB = 0#4e-6 #need to implement way of increasing mutation probability in individual cell lines 
 PROGRAMMED_DEATH_RATE = False
 SEED = 123
+
 #SAVE_INTERVAL = 1000 #number of cells to save after 
 """return spherical radius of tumor"""
 def calc_radius(n_cells, dim):
@@ -208,18 +209,21 @@ def config_params(kwargs):
         kwargs['exp_path'] = PARAMS_PATH
     if 'reps' not in kwargs:
         kwargs['reps'] = 1
-    if 'first_rep' not in kwargs:
+
+    if 'first_rep' not in kwargs and 'last_rep' not in kwargs:
         kwargs['first_rep'] = 0
-    if 'last_rep' not in kwargs:
-        kwargs['last_rep'] = kwargs['first_rep'] + kwargs['reps']
+        kwargs['last_rep'] = 0
+    elif 'last_rep' not in kwargs and 'first_rep' in kwargs:
+        kwargs['last_rep'] = kwargs['first_rep'] + kwargs['reps']-1
     else:
         kwargs['reps'] = kwargs['last_rep'] - kwargs['first_rep']+1
+    
     if 'save_interval' not in kwargs:
         kwargs['save_interval'] = MAX_POP #only save one 
     if 'dr_params' not in kwargs:
         kwargs['dr_params'] = dict()
+    #animation
     
-
     
 
     print('starting sanity checks...')
@@ -266,15 +270,27 @@ def config_params(kwargs):
         print(f'driver advantage must match, dr_params has {kwargs["dr_params"]["driver_dr_factor"]} but params has {kwargs["driver_dr_factor"]}')
         print('exiting...')
         sys.exit() 
+    #check animation params
+    if 'frame_rate' in kwargs:
+        try:
+            assert(type(kwargs['frame_rate'])==int)
+            assert(kwargs['n_cells'] >= kwargs['frame_rate'] >=0)
+        except(AssertionError):
+            print('invalid animation params\nexiting...')
+            sys.exit()
+        
     #write params to pkl file for rest of simulation to use
-    
+        
     with open(os.path.join(PARAMS_PATH,'params.pkl'), 'wb') as outfile:
         pickle.dump(kwargs, outfile, protocol=pickle.HIGHEST_PROTOCOL)    
     #write params to experiment location 
     Path(kwargs['exp_path']).mkdir(parents=True, exist_ok=True)
     with open(os.path.join(kwargs['exp_path'],'params.pkl'), 'wb') as outfile:
         pickle.dump(kwargs, outfile, protocol=pickle.HIGHEST_PROTOCOL)    
+    if 'frame_rate' in kwargs:
+        Path(os.path.join(kwargs['exp_path'], 'anim')).mkdir(parents=True, exist_ok=True)
     return kwargs
+   
   
     
 def simulateTumor(**kwargs):
