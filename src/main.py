@@ -71,7 +71,7 @@ def radial_prop_death_rate(cell, prop, inner_rate, outer_rate, driver_dr_factor)
 
 
 
-def radial_bern_death_rate(cell, inner_rate, outer_rate, driver_dr_factor):
+def radial_bern_death_rate(cell, prop, inner_rate, outer_rate, driver_dr_factor):
     """death rate outer_rate with prob p = min(d(cell, center)/radius,1) and inner_rate with 
     prob 1-p
     """
@@ -80,8 +80,9 @@ def radial_bern_death_rate(cell, inner_rate, outer_rate, driver_dr_factor):
     r = calc_radius(n_cells, cell.sim.params['dim']) 
     a = np.array(cell.pos)
     b = np.array(cell.sim.tumor.center)
-    prop = np.linalg.norm(a-b)/r
-    if np.random.random() < prop:
+    pcell = np.linalg.norm(a-b)/r
+    probability = pcell/2/prop if pcell <=prop else (pcell+1-2*prop)/(2*(1-prop))
+    if np.random.random() < probability:
         return outer_rate*np.power(driver_dr_factor, n_driv)
     return inner_rate*np.power(driver_dr_factor, n_driv)
 
