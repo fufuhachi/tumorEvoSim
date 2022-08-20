@@ -300,6 +300,12 @@ def simulateTumor(**kwargs):
     cur_rep = first_rep
     sim_list = []
     last_rep = params['last_rep']
+    
+    print(f'params are:')
+    for k in params.keys():
+        print(f'{k}:\n\t{params[k]}\n')
+    print('\n\n')
+    
     print('starting simulation...')
     while cur_rep < last_rep +1: 
         sim = classes.Simulation(params)
