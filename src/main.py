@@ -155,7 +155,7 @@ def get_kwargs_from_file(path):
     obj = None
     if ext == 'pkl':
         obj =  classes.load_object(path)
-    if ext == 'txt':
+    if ext == 'txt' or ext == 'json':
         with open(path,'r') as f:
             obj = json.load(f)
         f.close()
