@@ -1,4 +1,5 @@
 #file with end-user functions to set parameters and run simulation 
+from lib2to3.pgen2 import driver
 import numpy as np
 import pickle
 import classes
@@ -13,7 +14,7 @@ PARAMS_PATH = '' #change to program directory
 #defualt parameters: 
 DIM = 2
 INIT_BIRTH_RATE = 1#np.log(2)
-FIXED_DEATH_RATE = False
+
 DRIVER_ADVANTAGE = .1
 INIT_DEATH_RATE = .95*INIT_BIRTH_RATE
 MAX_DEATH_RATE = INIT_DEATH_RATE
@@ -31,89 +32,6 @@ MUTATOR_PROB = 0#4e-6 #need to implement way of increasing mutation probability 
 PROGRAMMED_DEATH_RATE = False
 SEED = 123
 
-#SAVE_INTERVAL = 1000 #number of cells to save after 
-"""return spherical radius of tumor"""
-def calc_radius(n_cells, dim):
-    if dim==2:
-        return np.sqrt(n_cells/np.pi)
-    else:
-        return np.cbrt(3*n_cells/4/np.pi)
-        
-"""Using params file, get cell death rate for a given configuration"""
-def one_fixed_death_rate(cell,death_rate):
-    return death_rate
-    
-def one_changing_death_rate(cell,init_death_rate,driver_dr_factor):
-    return init_death_rate*np.power(driver_dr_factor, cell.gen.n_drivers)
-    
-def radial_death_rate(cell,radius, inner_rate, outer_rate, driver_dr_factor):
-    a = np.array(cell.pos)
-    b = np.array(cell.sim.tumor.center)
-    if np.linalg.norm(a-b) < radius:
-        #print('in')
-        return inner_rate*np.power(driver_dr_factor, cell.gen.n_drivers)
-    #print('out')
-    return outer_rate*np.power(driver_dr_factor, cell.gen.n_drivers)
-def radial_prop_death_rate(cell, prop, inner_rate, outer_rate, driver_dr_factor):
-    """ inner death rate if within prop% of radius, otherwise inner"""
-    n_cells = cell.sim.tumor.N 
-    n_driv = cell.gen.n_drivers
-    r = calc_radius(n_cells, cell.sim.params['dim']) 
-    a = np.array(cell.pos)
-    b = np.array(cell.sim.tumor.center)
-    #print(f'r = {r}')
-    #print(f'dist = {np.linalg.norm(a-b)} and prop*r = {prop*r}')
-    if np.linalg.norm(a-b) < prop*r:
-        #print('inside radius')
-        return inner_rate*np.power(driver_dr_factor, n_driv)
-    #print('outside radius')
-    return outer_rate*np.power(driver_dr_factor,n_driv)
-
-
-
-def radial_bern_death_rate(cell, prop, inner_rate, outer_rate, driver_dr_factor):
-    """death rate outer_rate with prob p = min(d(cell, center)/radius,1) and inner_rate with 
-    prob 1-p
-    """
-    n_cells = cell.sim.tumor.N 
-    n_driv = cell.gen.n_drivers
-    r = calc_radius(n_cells, cell.sim.params['dim']) 
-    a = np.array(cell.pos)
-    b = np.array(cell.sim.tumor.center)
-    pcell = np.linalg.norm(a-b)/r
-    probability = pcell/2/prop if pcell <=prop else (pcell+1-2*prop)/(2*(1-prop))
-    if np.random.random() < probability:
-        return outer_rate*np.power(driver_dr_factor, n_driv)
-    return inner_rate*np.power(driver_dr_factor, n_driv)
-
-def radial_gauss_death_rate(cell, prop, inner_std, inner_rate, outer_std, outer_rate, driver_dr_factor):
-    """death rate is """
-    n_cells = cell.sim.tumor.N 
-    n_driv = cell.gen.n_drivers
-    r = calc_radius(n_cells, cell.sim.params['dim']) 
-    a = np.array(cell.pos)
-    b = np.array(cell.sim.tumor.center)
-    rate, std = inner_rate, inner_std if np.linalg.norm(a-b) < prop*r else outer_rate, outer_std
-    out =  np.random.normal(rate, std)*np.power(driver_dr_factor, n_driv)
-    if out < 0:
-        return 0
-    elif out > 1:
-        return 1
-    return out 
-
-
-def programmed_death_rate(time, start=60,end=130,dr1 = .1, dr2 = .65, ):
-    if time < start or time > end:
-        return dr1
-    return dr2
-
-DR_FUNCTIONS = {'default': one_changing_death_rate,
-'radial':radial_death_rate,'one_changing_death_rate':programmed_death_rate, 
-'radial_prop': radial_prop_death_rate, 'radial_bern': radial_bern_death_rate, 
-'radial_gauss':radial_gauss_death_rate}
-
-
-
 def check_fcn_args(fcn,params,kwargs):
     args = inspect.getfullargspec(fcn)[0]
     for a in args:
@@ -126,26 +44,6 @@ def check_fcn_args(fcn,params,kwargs):
                     print(f'{a} must be defined when using {fcn.__name__}')
                     print('exiting...')
                     sys.exit() 
-def set_nbrs(neighborhood = 'moore', dim = DIM):
-    NBRS = []
-    if neighborhood == 'moore':
-            for i in [0,-1,1]:
-                for j in [0,-1,1]:
-                    if dim ==2:
-                        NBRS.append([i,j])
-                    else:
-                        for k in [0,-1,1]:
-                            NBRS.append([i,j,k])
-            NBRS = np.array(NBRS)[1:]
-    else:   
-        if dim==3:
-            NBRS = np.array([[1,0,0], [-1,0,0], [0,1,0],[0,-1,0],[0,0,1],[0,0,-1]])
-        else:
-            NBRS = np.array([[1,0],[-1,0],[0,1],[0,-1]])
-    return NBRS
-
-    
-NBRS = set_nbrs()
 
 def get_kwargs_from_file(path):
     if path is None:
@@ -166,6 +64,7 @@ def get_kwargs_from_file(path):
         print('exiting...')
         sys.exit() 
     return obj
+
 def calc_radius(n_cells, dim):
     if dim==2:
         return np.sqrt(n_cells/np.pi)
@@ -183,13 +82,7 @@ def config_params(kwargs):
             kwargs['neighborhood'] = 'moore'
     if kwargs['neighborhood']!= 'moore':
         kwargs['neighborhood'] = 'von_neumann'
-    if 'fixed_death_rate' not in kwargs:
-            kwargs['fixed_death_rate'] = False
-    if 'init_death_rate' not in kwargs:
-            kwargs['init_death_rate'] = INIT_DEATH_RATE
-    kwargs['death_rate'] = kwargs['init_death_rate']
-    if 'init_birth_rate' not in kwargs:
-            kwargs['init_birth_rate'] = INIT_BIRTH_RATE
+    
     if 'driver_advantage' not in kwargs:
             kwargs['driver_advantage'] = DRIVER_ADVANTAGE
     if 'driver_prob' not in kwargs:
@@ -218,14 +111,24 @@ def config_params(kwargs):
         kwargs['last_rep'] = kwargs['first_rep'] + kwargs['reps']-1
     else:
         kwargs['reps'] = kwargs['last_rep'] - kwargs['first_rep']+1
+
+    if 'n_migrations' not in kwargs:
+        kwargs['n_migrations'] = 0
     
     if 'save_interval' not in kwargs:
         kwargs['save_interval'] = MAX_POP #only save one 
+        
     if 'dr_params' not in kwargs:
-        kwargs['dr_params'] = dict()
-    #animation
-    
-    
+        kwargs['dr_function'] = 'default'
+        kwargs['dr_params'] = {'init_death_rate': kwargs['init_death_rate'], 'driver_dr_factor': 1-kwargs['driver_advantage']}
+
+    if 'br_params' not in kwargs:
+        kwargs['br_function'] = 'default'
+        kwargs['br_params'] = {'init_birth_rate': kwargs['init_birth_rate']}
+
+    if 'mutate_params' not in kwargs:
+        kwargs['mutate_function'] = 'default'
+        kwargs['mutate_params'] = dict()
 
     print('starting sanity checks...')
     #check replicate number validity
@@ -237,33 +140,24 @@ def config_params(kwargs):
         sys.exit()
     
         
-    #check death rate function validity
-    if 'dr_function' not in kwargs:
-        kwargs['dr_function'] = DR_FUNCTIONS['default']
-    else:
-        try:
-            kwargs['dr_function'] = DR_FUNCTIONS[kwargs['dr_function']]
-        except(KeyError):
-            print('death rate function not defined')
-            print('exiting...')
-            sys.exit()
    
     #set dependent parameters, sanity checks
-    kwargs['driver_dr_factor'] = 1-kwargs['driver_advantage'] #death rate factor
     r = calc_radius(kwargs['n_cells'],kwargs['dim'])
     kwargs['boundary'] = int(r*(1+PAD))
-    if kwargs['fixed_death_rate']: kwargs['driver_prob'] = 0 
-    kwargs['neighbors'] = set_nbrs(kwargs['neighborhood'],kwargs['dim'])
+    
+    
 
-    check_fcn_args(kwargs['dr_function'],kwargs['dr_params'],kwargs)
-    probs = ['init_mut_prob', 'init_birth_rate', 'init_death_rate', 'driver_prob', 'driver_dr_factor','max_death_rate']
-    for p in probs:
-        try:
-            assert(1>=kwargs[p]>=0)
-        except(AssertionError):
-            print(f'parameter {p} must be between 0 and 1 inclusive')
-            print('exiting...')
-            sys.exit()
+    #check_fcn_args(kwargs['dr_function'],kwargs['dr_params'],kwargs) #depricated
+    
+    #probs = ['init_mut_prob', 'init_birth_rate', 'init_death_rate', 'driver_prob', 'driver_dr_factor','max_death_rate']
+
+    #for p in probs:
+    #    try:
+    #        assert(1>=kwargs[p]>=0)
+     #   except(AssertionError):
+     #       print(f'parameter {p} must be between 0 and 1 inclusive')
+     #       print('exiting...')
+     #       sys.exit()
     try:
         if 'driver_dr_factor' in kwargs['dr_params']:
             assert(kwargs['driver_dr_factor']==kwargs['dr_params']['driver_dr_factor'])
@@ -279,7 +173,7 @@ def config_params(kwargs):
         except(AssertionError):
             print('invalid animation params\nexiting...')
             sys.exit()
-        
+    
     #write params to pkl file for rest of simulation to use
         
     with open(os.path.join(PARAMS_PATH,'params.pkl'), 'wb') as outfile:
@@ -295,25 +189,30 @@ def config_params(kwargs):
   
     
 def simulateTumor(**kwargs):
+    max_attempts = 100 #maximum number of times to try a particular rep before moving on
     params = config_params(kwargs)
     first_rep = params['first_rep']
     cur_rep = first_rep
     sim_list = []
     last_rep = params['last_rep']
-    
-    print(f'params are:')
+    """print(f'params are:')
     for k in params.keys():
         print(f'{k}:\n\t{params[k]}\n')
-    print('\n\n')
+        
+    print('\n\n')"""
     
     print('starting simulation...')
     while cur_rep < last_rep +1: 
+        attempts = 0
         sim = classes.Simulation(params)
         sim.run(cur_rep) 
         sim_list.append(sim)
         print(f'rep {cur_rep} complete')
-        cur_rep+=1
+        if sim.tumor.N > 0 or attempts == max_attempts:
+           cur_rep+=1
+        attempts +=1
     print('done!')
+
     return sim_list[0] if len(sim_list)==1 else sim_list
 
 if __name__ == '__main__': 

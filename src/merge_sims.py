@@ -38,7 +38,7 @@ def tumor_summary(tumor, param_names, params):
     return df
 
 if __name__ == '__main__':
-    concatted = None
+    to_concat = []
     folder_list = sys.argv[1]
     catted_file = sys.argv[2]
     for folder in np.loadtxt(folder_list, dtype = 'str'):
@@ -52,12 +52,12 @@ if __name__ == '__main__':
             param_names = (sf[0],sf[2],sf[4], 'rep')
             params = (sf[1],sf[3],sf[5], i)
             df = tumor_summary(tumor, param_names, params)
-            if concatted is None:
-                concatted = df
-            else:
-                concatted = pd.concat((concatted, df))
+            to_concat.append(df)
+            
         print(f'{folder} done')
-    concatted.to_csv(f'{catted_file}.npy')
+
+    catted = pd.concat(objs = to_concat, ignore_index=True)
+    catted.to_csv(f'{catted_file}.npy')
 
 
 

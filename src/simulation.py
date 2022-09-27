@@ -121,6 +121,7 @@ def plot_growth(tumor,**kwargs):
     ax = plt.scatter(tumor.sim.t_traj, tumor.sim.N_traj,**kwargs)
     plt.xlabel('time (days)')
     plt.ylabel('size (cells)')
+    plt.xlim(left = 0)
     #plt.show()
     return ax
 def plot_drivers(tumor, by_fitness = False, vmin = None, vmax = None):
