@@ -1,5 +1,3 @@
-
-
 import numpy as np
 import pickle
 import sys
@@ -51,10 +49,16 @@ class Simulation():
             self.tumor.iterate()
             if self.tumor.iter%40000==0:
                 print(f'size = {self.tumor.N} at {int(self.tumor.t/365)} years {self.tumor.t%365} days')
+                if self.params['save_by'] == 'time':
+                    save_object(self, f'{self.params["exp_path"]}/rep={rep}_ncells={self.tumor.N}_time={self.tumor.t}.pkl')
+            #    
+            #else: 
+            #    counter = self.tumor.N
             if self.tumor.N%self.params['save_interval']==0 and self.tumor.N!=prev:
                 #print(f'saving with driviers {self.tumor.drivers}') #DEBUG
-                save_object(self, f'{self.params["exp_path"]}/rep={rep}_ncells={self.tumor.N}.pkl')
+                save_object(self, f'{self.params["exp_path"]}/rep={rep}_ncells={self.tumor.N}_time={self.tumor.t}.pkl')
                 prev = self.tumor.N #only save same cell size once 
+            
             if animate_it:
                 self.animate(rep)
         #save final 
@@ -64,8 +68,8 @@ class Simulation():
     def animate(self,rep):
         if self.tumor.N%self.params['frame_rate']==0:
             np.savetxt(f'{self.params["exp_path"]}/anim/rep={rep}_{self.tumor.N}.npz',self.tumor.graph)
-            
-        
+
+       
 class Cell():
     """a cell defined by a unique ID with mutable attribute position (optional) and immutable attribute genotype
     gen: Genotype of the cell. 
@@ -82,8 +86,12 @@ class Cell():
         DEATH_FUNCTIONS = {'default': self.one_changing_death_rate,
         'radial':self.radial_death_rate,'one_changing_death_rate':self.programmed_death_rate, 
         'radial_prop': self.radial_prop_death_rate, 'radial_bern': self.radial_bern_death_rate, 
-        'nbr_based': self.nbr_based_death_rate}
-        MUTATE_FUNCTIONS = {'default': self.default_mutate, 'fixed_number': self.fixed_number_mutate, 'progression': self.progression_mutate}
+        'nbr_based': self.nbr_based_death_rate, 'resistance_model': self.resistance_model_death}
+
+        MUTATE_FUNCTIONS = {'default': self.default_mutate, 'fixed_number': self.fixed_number_mutate, 
+        'progression': self.progression_mutate,'resistance_model': self.resistance_model_mutate}
+
+        PUSH_FUNCTIONS = {'default': self.default_push, 'prop': self.prop_push}
         
         try:
             self.get_birth_rate = BIRTH_FUNCTIONS[self.sim.params['br_function']]
@@ -105,6 +113,14 @@ class Cell():
             print(f'mutate function not defined. Must be one of {[k for k in MUTATE_FUNCTIONS.keys()]}')
             print('exiting...')
             sys.exit()
+        
+        try:
+            self.get_push_rate = PUSH_FUNCTIONS[self.sim.params['push_function']]
+        except(KeyError):
+            print(f'birth rate function not defined. Must be one of {[k for k in BIRTH_FUNCTIONS.keys()]}')
+            print('exiting...')
+            sys.exit()
+
 
     #BIRTH FUNCTIONS
     def one_fixed_birth_rate(self, init_birth_rate):
@@ -174,6 +190,17 @@ class Cell():
         if len(empty_nbrs) > 0:
             return outer_rate*np.power(1-s, n_driv)
         return inner_rate*np.power(1-s, n_driv)
+
+    def resistance_model_death(self, **dr_params):
+        """if cell has fewer mutations than needed for resistance, specified by the mutation
+        function parameter 'muts_to_res', then death rate is radial_death rate. Otherwise
+        return the inner death rate. Assumed that inner rate is lower, as this is a model 
+        of acquired resistance to treatment"""
+
+        if self.gen.n_drivers < self.sim.params['mutate_params']['muts_to_res']:
+            return self.radial_death_rate(**dr_params)
+        else: 
+            return dr_params['inner_rate']
     
     #MUTATE FUNCTIONS
         
@@ -212,12 +239,48 @@ class Cell():
             self.gen = new_gen
             self.sim.tumor.add_genotype(new_gen)
         self.sim.tumor.next_snp = n
-            
-    def fixed_number_mutate(self, number = 1, by = 'size', value = 100):
+    
+    def passen_mutate(self):
+        """function to produce mutations in default mutate but only for passenger mutations
+        returns a mutations list containing the passenger mutations this round 
+        """
+        n = self.sim.tumor.next_snp
+        n_new_passen  = np.random.poisson(self.gen.passen_rate)
+        total_passen  = self.gen.passen
+        if n_new_passen > 0:
+            total_passen = np.append(total_passen, np.arange(n,n+n_new_passen))
+        
+        self.sim.tumor.next_snp += n_new_passen
+        return total_passen
+
+    def driver_mutate(self):
+        """function to produce mutations in default mutate but only for driver mutations
+        returns a mutations list containing the driver mutations this round 
+        """
+        n = self.sim.tumor.next_snp
+        n_new_driv  = np.random.poisson(self.gen.driver_rate)
+        total_drivers  = self.gen.drivers
+        if n_new_driv > 0:
+            total_drivers = np.append(total_drivers, np.arange(n,n+n_new_driv))
+        n += n_new_driv
+        self.sim.tumor.next_snp += n_new_driv
+        self.sim.tumor.total_drivers += n_new_driv
+        return total_drivers
+
+    def update_genome(self, passengers = None, drivers = None, mutators = None):
+        new_gen = Genotype(sim = self.sim,ID = self.sim.tumor.gens.len()+1, parent = self.gen, passen = passengers, drivers = drivers, mutators = mutators)
+        self.gen.children = np.append(self.gen.children, new_gen)
+        self.gen.remove()
+        self.gen = new_gen
+        self.sim.tumor.add_genotype(new_gen)
+        
+
+    def fixed_number_mutate(self, number = 1, by = 'random', value = 100):
         """allow a fixed number of mutations to appear in the whole population, and then forbid further mutations. Accepts a certain number of mutations, does not allow them afterwards"""
         #needs work 
         new_drivers = []
-        if by == 'size':
+        if by == 'size': #once tumor is 
+            # a certain size, give out number of mutations to a group of cells all at the same time (meant to ensure some survive drift) until there are the desired number of mutations in the population
             if self.sim.tumor.N >= value and len(self.sim.tumor.tracked_variants) < number:
                 snp = self.sim.tumor.next_snp
                 new_drivers.append(snp)
@@ -226,6 +289,7 @@ class Cell():
                 self.sim.tumor.tracked_variants.add(snp)
                 print(f'added, set is now {self.sim.tumor.tracked_variants}')
 
+        
         n_passen = np.random.poisson(self.gen.passen_rate)
         n = self.sim.tumor.next_snp
         if n_passen + len(new_drivers)>0:
@@ -237,10 +301,45 @@ class Cell():
             self.gen = new_gen
             self.sim.tumor.add_genotype(new_gen)
         self.sim.tumor.next_snp = n
+
+    def resistance_model_mutate(self,muts_to_res = 1):
+        """model of resistance to treatment. cell mutation determines death rate
+        if specified, selective advantage should be 0, as death rate is determined
+        not by the advantage of a driver but by the existence of a certain number of 
+        mutations 
+        """
+        #ndrivbefore = self.gen.n_drivers
+        total_passen = self.passen_mutate()
+        #assert(self.gen.n_drivers == ndrivbefore)
+        total_drivers = self.gen.drivers
+        if self.gen.n_drivers < muts_to_res:
+           total_drivers = self.driver_mutate()
+        if len(total_drivers) > self.n_drivers or len(total_passen) > self.n_passen: 
+            self.update_genome(passengers = total_passen, drivers = total_drivers)
+        #print(f'before was {ndrivbefore} now is {self.gen.n_drivers}')
+
+        
+        
         
     def progression_mutate(self, progression):
         """given a list of mutations that are allowed, only sample mutations if a cell has fewer than the allowed mutations"""
+        
         raise(NotImplementedError)
+
+    #PUSH FUNCTIONS
+
+    def default_push(self):
+        """return guaranteed probability of pushing"""
+        return 0
+
+    def prop_push(self, prop):
+        """return push based on proportion of radius"""
+        n_cells = self.sim.tumor.N 
+        r = calc_radius(n_cells, self.sim.params['dim']) 
+        a = np.array(self.pos)
+        b = np.array(self.sim.tumor.center)
+        return int(np.linalg.norm(a-b) >= prop*r)
+            
 
     def get_empty_nbrs(self):
         nbrs = (self.sim.nbrs + np.array(self.pos))
@@ -282,9 +381,9 @@ Attributes:
         self.n_drivers = self.drivers.shape[0]
         self.mutators = np.array([], dtype = int) if mutators is None else mutators
         self.n_mutators = self.mutators.shape[0] #TODO: justify mutator 
-        self.passen_rate = self.sim.params['init_mut_prob']*np.power(self.sim.params['mutator_factor'], self.n_mutators)
-        self.driver_rate = self.sim.params['driver_prob']*np.power(self.sim.params['mutator_factor'], self.n_mutators)
-        self.mutator_rate = self.sim.params['mutator_prob']*np.power(self.sim.params['mutator_factor'], self.n_mutators)
+        self.passen_rate = self.sim.params['passen_rate']*np.power(self.sim.params['mutator_factor'], self.n_mutators)
+        self.driver_rate = self.sim.params['driver_rate']*np.power(self.sim.params['mutator_factor'], self.n_mutators)
+        self.mutator_rate = self.sim.params['mutator_rate']*np.power(self.sim.params['mutator_factor'], self.n_mutators)
        
         self.parent = parent
         self.children = np.array([],dtype = int)
@@ -367,7 +466,7 @@ class Tumor():
     
     def update_time(self):
         """update the time of the simulation after a birth/death event """
-        self.t+=1/(self.bmax*self.N)
+        self.t+=np.log(2)/(self.bmax*self.N)
         self.iter+=1
 
     def iterate(self):
@@ -432,6 +531,8 @@ class Tumor():
         nbrs = cell.get_empty_nbrs()
 
         br = cell.get_birth_rate(**self.params['br_params'])
+       
+        #can_push = cell.get_push_rate()
         if nbrs.shape[0] >0:
             nbr = nbrs[np.random.randint(0,nbrs.shape[0])]
             #print(f'chose nbr {nbr}')
@@ -445,11 +546,42 @@ class Tumor():
             #mutate daughter cell, sample to determine whether to kill parent cell. If no, mutate parent cell 
                 new_cell.mutate(**self.params['mutate_params'])
             #if np.random.random() <cell.get_death_rate()/self.dmax: #comment out! 
-        
+       
+
         dr = cell.get_death_rate(**self.params['dr_params'])
         if np.random.random() < dr:
             self.remove_cell(cell)
         return
+
+    def bdg_nonSpatialSeparateDeath(self):
+        birth_cell = self.cells.choose_random_item()
+        #print(f'chose {cell}')
+        gen = birth_cell.gen
+        nbrs = birth_cell.get_empty_nbrs()
+
+        br = birth_cell.get_birth_rate(**self.params['br_params'])
+       
+        #can_push = cell.get_push_rate()
+        if nbrs.shape[0] >0:
+            nbr = nbrs[np.random.randint(0,nbrs.shape[0])]
+            #print(f'chose nbr {nbr}')
+            self.hit_bound = check_bound(nbr, self.params['boundary'])
+            
+            #print(br)
+            if np.random.random() < br:
+                new_cell = Cell(self.sim, ID = self.iter+1, gen = gen, pos = tuple(nbr))
+                self.add_cell(new_cell)
+            #print(f'cell pop is now: {self.cells}')
+            #mutate daughter cell, sample to determine whether to kill parent cell. If no, mutate parent cell 
+                new_cell.mutate(**self.params['mutate_params'])
+            #if np.random.random() <cell.get_death_rate()/self.dmax: #comment out! 
+       
+        death_cell = self.cells.choose_random_item()
+        dr = death_cell.get_death_rate(**self.params['dr_params'])
+        if np.random.random() < dr:
+            self.remove_cell(death_cell)
+        return
+
 
     def nonSpatialGrowth(self):
         """growth where cells are randomly pushed to make room for offspring at every timestep"""
@@ -661,7 +793,7 @@ if __name__ == "__main__":
     params['n_cells'] = 20000
     params['n_migrations'] = 5
    
-    params['driver_prob'] = .01
+    params['driver_rate'] = .01
     params['dr_function'] = 'radial'
     params['br_function'] = 'default'
     params['model'] = 'nonSpatial'

@@ -15,9 +15,8 @@ PARAMS_PATH = '' #change to program directory
 DIM = 2
 INIT_BIRTH_RATE = 1#np.log(2)
 
-DRIVER_ADVANTAGE = .1
+DRIVER_ADVANTAGE = 0
 INIT_DEATH_RATE = .95*INIT_BIRTH_RATE
-MAX_DEATH_RATE = INIT_DEATH_RATE
 
 PAD = 5 #fraction of radius to pad boundary 
 MUTATOR_FACTOR = .01
@@ -25,12 +24,14 @@ BOUNDARY = 300
 MAX_ITER = int(1e9)
 MAX_POP = 50000
 PUSH = 0
-INIT_MUT_PROB = 0#.02 #taken from Waclaw et al. 2015 
-DRIVER_PROB = 4e-5
+PASSEN_RATE = 0#.02 #taken from Waclaw et al. 2015 
+DRIVER_RATE = 1e-2#4e-5
 
-MUTATOR_PROB = 0#4e-6 #need to implement way of increasing mutation probability in individual cell lines 
+MUTATOR_RATE = 0#4e-6 #need to implement way of increasing mutation probability in individual cell lines 
 PROGRAMMED_DEATH_RATE = False
 SEED = 123
+
+
 
 def check_fcn_args(fcn,params,kwargs):
     args = inspect.getfullargspec(fcn)[0]
@@ -85,18 +86,16 @@ def config_params(kwargs):
     
     if 'driver_advantage' not in kwargs:
             kwargs['driver_advantage'] = DRIVER_ADVANTAGE
-    if 'driver_prob' not in kwargs:
-            kwargs['driver_prob'] = DRIVER_PROB
-    if 'max_death_rate' not in kwargs:
-        kwargs['max_death_rate'] = MAX_DEATH_RATE
+    if 'driver_rate' not in kwargs:
+            kwargs['driver_rate'] = DRIVER_RATE
     if 'mutator_factor' not in kwargs:
         kwargs['mutator_factor']= MUTATOR_FACTOR
     if 'max_iter' not in kwargs:
         kwargs['max_iter'] = MAX_ITER
-    if 'init_mut_prob' not in kwargs:
-        kwargs['init_mut_prob'] = INIT_MUT_PROB
-    if 'mutator_prob' not in kwargs:
-        kwargs['mutator_prob'] = MUTATOR_PROB
+    if 'passen_rate' not in kwargs:
+        kwargs['passen_rate'] = PASSEN_RATE
+    if 'mutator_rate' not in kwargs:
+        kwargs['mutator_rate'] = MUTATOR_RATE
     if 'progression' not in kwargs:
         kwargs['progression'] = None
     if 'exp_path' not in kwargs:
@@ -106,7 +105,7 @@ def config_params(kwargs):
 
     if 'first_rep' not in kwargs and 'last_rep' not in kwargs:
         kwargs['first_rep'] = 0
-        kwargs['last_rep'] = 0
+        kwargs['last_rep'] = kwargs['reps']-1
     elif 'last_rep' not in kwargs and 'first_rep' in kwargs:
         kwargs['last_rep'] = kwargs['first_rep'] + kwargs['reps']-1
     else:
@@ -117,10 +116,17 @@ def config_params(kwargs):
     
     if 'save_interval' not in kwargs:
         kwargs['save_interval'] = MAX_POP #only save one 
+    if 'save_by' not in kwargs:
+        kwargs['save_by'] = 'cells'#default to saving by cells
+    
         
     if 'dr_params' not in kwargs:
         kwargs['dr_function'] = 'default'
-        kwargs['dr_params'] = {'init_death_rate': kwargs['init_death_rate'], 'driver_dr_factor': 1-kwargs['driver_advantage']}
+        kwargs['dr_params'] = {'init_death_rate': kwargs['init_death_rate']}
+
+    if kwargs['dr_function'] == 'resistance_model':
+        assert(kwargs['mutate_function'] == 'resistance_model')
+
 
     if 'br_params' not in kwargs:
         kwargs['br_function'] = 'default'
@@ -129,6 +135,16 @@ def config_params(kwargs):
     if 'mutate_params' not in kwargs:
         kwargs['mutate_function'] = 'default'
         kwargs['mutate_params'] = dict()
+
+    if kwargs['mutate_function'] == 'resistance_model':
+        assert(kwargs['dr_function'] == 'resistance_model')
+        assert(kwargs['driver_advantage']==0) 
+        print(f'resistance model selected. Death rate params are: {kwargs["dr_params"]}')
+        
+    if 'push_params' not in kwargs:
+        kwargs['push_function'] = 'default'
+        kwargs['push_params'] = dict()
+
 
     print('starting sanity checks...')
     #check replicate number validity
@@ -149,8 +165,7 @@ def config_params(kwargs):
 
     #check_fcn_args(kwargs['dr_function'],kwargs['dr_params'],kwargs) #depricated
     
-    #probs = ['init_mut_prob', 'init_birth_rate', 'init_death_rate', 'driver_prob', 'driver_dr_factor','max_death_rate']
-
+    
     #for p in probs:
     #    try:
     #        assert(1>=kwargs[p]>=0)
@@ -158,13 +173,7 @@ def config_params(kwargs):
      #       print(f'parameter {p} must be between 0 and 1 inclusive')
      #       print('exiting...')
      #       sys.exit()
-    try:
-        if 'driver_dr_factor' in kwargs['dr_params']:
-            assert(kwargs['driver_dr_factor']==kwargs['dr_params']['driver_dr_factor'])
-    except(AssertionError):
-        print(f'driver advantage must match, dr_params has {kwargs["dr_params"]["driver_dr_factor"]} but params has {kwargs["driver_dr_factor"]}')
-        print('exiting...')
-        sys.exit() 
+    
     #check animation params
     if 'frame_rate' in kwargs:
         try:
@@ -181,7 +190,12 @@ def config_params(kwargs):
     #write params to experiment location 
     Path(kwargs['exp_path']).mkdir(parents=True, exist_ok=True)
     with open(os.path.join(kwargs['exp_path'],'params.pkl'), 'wb') as outfile:
-        pickle.dump(kwargs, outfile, protocol=pickle.HIGHEST_PROTOCOL)    
+        pickle.dump(kwargs, outfile, protocol=pickle.HIGHEST_PROTOCOL) 
+    #write params to text file for convenience
+    with open(os.path.join(kwargs['exp_path'],'params.txt'), 'w') as outfile:
+        outfile.write(json.dumps(kwargs))
+    
+    
     if 'frame_rate' in kwargs:
         Path(os.path.join(kwargs['exp_path'], 'anim')).mkdir(parents=True, exist_ok=True)
     return kwargs
@@ -189,12 +203,13 @@ def config_params(kwargs):
   
     
 def simulateTumor(**kwargs):
-    max_attempts = 100 #maximum number of times to try a particular rep before moving on
+    max_attempts = 10000 #maximum number of times to try a particular rep before moving on
     params = config_params(kwargs)
     first_rep = params['first_rep']
     cur_rep = first_rep
     sim_list = []
     last_rep = params['last_rep']
+    attempts = 0
     """print(f'params are:')
     for k in params.keys():
         print(f'{k}:\n\t{params[k]}\n')
@@ -202,15 +217,16 @@ def simulateTumor(**kwargs):
     print('\n\n')"""
     
     print('starting simulation...')
+    print(cur_rep)
     while cur_rep < last_rep +1: 
-        attempts = 0
         sim = classes.Simulation(params)
-        sim.run(cur_rep) 
+        while sim.tumor.N < 2 and attempts < max_attempts:
+           sim = classes.Simulation(params)
+           print(f'trying rep {cur_rep}')
+           sim.run(cur_rep) 
+           attempts +=1
+        cur_rep+=1
         sim_list.append(sim)
-        print(f'rep {cur_rep} complete')
-        if sim.tumor.N > 0 or attempts == max_attempts:
-           cur_rep+=1
-        attempts +=1
     print('done!')
 
     return sim_list[0] if len(sim_list)==1 else sim_list
@@ -237,7 +253,7 @@ if __name__ == '__main__':
         #exp_path = f'../test/r={r}_di=.9_do=.1'
     
         #dr_params = {'radius':r ,'inner_rate': .9 ,'outer_rate': .1}
-        #out = simulateTumor(dim =2, driver_advantage = .5,n_cells = 20000,exp_path = exp_path, driver_prob = 1e-2, dr_function = 'radial', dr_params = dr_params, save_interval= 5000)
+        #out = simulateTumor(dim =2, driver_advantage = .5,n_cells = 20000,exp_path = exp_path, driver_rate = 1e-2, dr_function = 'radial', dr_params = dr_params, save_interval= 5000)
         #ax = simulation.plot_drivers(out.tumor, by_fitness = True)[2]
         #ax = simulation.plot_circle(ax, out.tumor.center, r)
         #ax.set_title(f'r = {r}, inner dr = {dr_params["inner_rate"]}, outer dr = {dr_params["outer_rate"]}')
