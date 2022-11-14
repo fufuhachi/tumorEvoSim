@@ -36,25 +36,29 @@ def tumor_summary(tumor, rep = 0):
 
 
 if __name__ == '__main__':
+    max_rep = 10
     folder_list = sys.argv[1]
     with open(folder_list, 'r') as f:
         timepoints = []
-        for folder in f:
+        for folder in f.readlines():
             folder = folder.strip('\n')
             print(folder)
-            rep = folder.split('_')[-1]
+            rep = int(folder.split('_')[-1])
+            if rep==max_rep:
+                break
             for file in os.listdir(folder):
                 if file.split('_')[-1].startswith('time'):
                     
-                    sim = classes.load_object(os.path.join(dir,file))
-                    summary = tumor_summary(sim.tumor)
+                    sim = classes.load_object(os.path.join(folder,file))
+                    summary = tumor_summary(sim.tumor, rep = rep)
                     summary['t'] = sim.tumor.t
-                    timepoints.append(summary, rep = rep)
+                    timepoints.append(summary)
+            
             print(f'{folder} dataframes created')
         print('concatenating all dataframes')
         timedata = pd.concat(timepoints)
         print('writing to file')
-        timedata.to_csv(f'experiment.csv')
+        timedata.to_csv(f'experiment_nreps_{max_rep}.csv')
         print('done')
 
     
