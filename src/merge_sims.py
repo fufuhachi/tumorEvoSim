@@ -40,7 +40,7 @@ if __name__ == '__main__':
     with open(folder_list, 'r') as f:
         timepoints = []
         for folder in f:
-            folder = folder.strip()
+            folder.strip()
             print(folder)
             rep = folder.split('_')[-1]
             for file in os.listdir(folder):
