@@ -38,7 +38,7 @@ def tumor_summary(tumor, rep = 0):
 if __name__ == '__main__':
     folder_list = sys.argv[1]
     timepoints = []
-    for folder in np.loadtxt(folder_list, dtype = 'str'):
+    for folder in np.loadtxt(folder_list, dtype = str):
         print(folder)
         rep = folder.split('_')[-1]
         for file in os.listdir(folder):
