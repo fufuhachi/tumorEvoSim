@@ -37,24 +37,24 @@ def tumor_summary(tumor, rep = 0):
 
 if __name__ == '__main__':
     folder_list = sys.argv[1]
-    folder_list = open(folder_list, 'w')
-    timepoints = []
-    for folder in folder_list.readlines():
-        print(folder)
-        rep = folder.split('_')[-1]
-        for file in os.listdir(folder):
-            if file.split('_')[-1].startswith('time'):
-                
-                sim = classes.load_object(os.path.join(dir,file))
-                summary = tumor_summary(sim.tumor)
-                summary['t'] = sim.tumor.t
-                timepoints.append(summary, rep = rep)
-        print(f'{folder} dataframes created')
-    print('concatenating all dataframes')
-    timedata = pd.concat(timepoints)
-    print('writing to file')
-    timedata.to_csv(f'experiment.csv')
-    print('done')
+    with open(folder_list, 'w') as f:
+        timepoints = []
+        for folder in f.readlines():
+            print(folder)
+            rep = folder.split('_')[-1]
+            for file in os.listdir(folder):
+                if file.split('_')[-1].startswith('time'):
+                    
+                    sim = classes.load_object(os.path.join(dir,file))
+                    summary = tumor_summary(sim.tumor)
+                    summary['t'] = sim.tumor.t
+                    timepoints.append(summary, rep = rep)
+            print(f'{folder} dataframes created')
+        print('concatenating all dataframes')
+        timedata = pd.concat(timepoints)
+        print('writing to file')
+        timedata.to_csv(f'experiment.csv')
+        print('done')
 
     
     
