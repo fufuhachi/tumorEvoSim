@@ -42,7 +42,7 @@ if __name__ == '__main__':
         for folder in f:
             print(folder)
             rep = folder.split('_')[-1]
-            for file in os.listdir(folder):
+            for file in os.listdir(folder[:-2]):
                 if file.split('_')[-1].startswith('time'):
                     
                     sim = classes.load_object(os.path.join(dir,file))
