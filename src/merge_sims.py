@@ -39,8 +39,8 @@ if __name__ == '__main__':
     folder_list = sys.argv[1]
     timepoints = []
     for folder in np.loadtxt(folder_list, dtype = 'str'):
+        print(folder)
         rep = folder.split('_')[-1]
-        
         for file in os.listdir(folder):
             if file.split('_')[-1].startswith('time'):
                 
@@ -48,7 +48,7 @@ if __name__ == '__main__':
                 summary = tumor_summary(sim.tumor)
                 summary['t'] = sim.tumor.t
                 timepoints.append(summary, rep = rep)
-        print(f'{folder} dataframe created')
+        print(f'{folder} dataframes created')
     print('concatenating all dataframes')
     timedata = pd.concat(timepoints)
     print('writing to file')
