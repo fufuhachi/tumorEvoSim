@@ -37,9 +37,9 @@ def tumor_summary(tumor, rep = 0):
 
 if __name__ == '__main__':
     folder_list = sys.argv[1]
-    with open(folder_list, 'w') as f:
+    with open(folder_list, 'r') as f:
         timepoints = []
-        for folder in f.readlines():
+        for folder in f:
             print(folder)
             rep = folder.split('_')[-1]
             for file in os.listdir(folder):
