@@ -40,9 +40,10 @@ if __name__ == '__main__':
     with open(folder_list, 'r') as f:
         timepoints = []
         for folder in f:
+            folder = folder.strip()
             print(folder)
             rep = folder.split('_')[-1]
-            for file in os.listdir(folder[:]):
+            for file in os.listdir(folder):
                 if file.split('_')[-1].startswith('time'):
                     
                     sim = classes.load_object(os.path.join(dir,file))
