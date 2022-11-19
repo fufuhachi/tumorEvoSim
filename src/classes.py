@@ -1,6 +1,8 @@
+from re import A
 import numpy as np
 import pickle
 import sys
+
 
 def set_nbrs(neighborhood, dim):
             nbrs = []
@@ -81,27 +83,30 @@ class Cell():
         self.gen = gen #Genotype 
         
         #self.death_rate = self.sim.params['init_death_rate'] if self.sim.params['fixed_death_rate'] else self.sim.params['init_death_rate']*np.power(self.sim.params['driver_dr_factor'], self.gen.n_drivers)
-        BIRTH_FUNCTIONS = {'default': self.one_fixed_birth_rate}
+        BIRTH_FUNCTIONS = {'default': self.one_fixed_rate, 'fixed': self.one_fixed_rate, 'one_changing': self.one_changing_rate,
+        'radial': self.radial_rate}
 
-        DEATH_FUNCTIONS = {'default': self.one_changing_death_rate,
-        'radial':self.radial_death_rate,'one_changing_death_rate':self.programmed_death_rate, 
-        'radial_prop': self.radial_prop_death_rate, 'radial_bern': self.radial_bern_death_rate, 
-        'nbr_based': self.nbr_based_death_rate, 'resistance_model': self.resistance_model_death}
+        DEATH_FUNCTIONS = {'default': self.one_changing_rate,
+        'radial':self.radial_rate,'one_changing':self.one_changing_rate, 
+        'radial_prop': self.radial_prop_rate, 'radial_bern': self.radial_bern_rate, 
+        'nbr_based': self.nbr_based_rate, 'resistance_model': self.resistance_model_death}
 
         MUTATE_FUNCTIONS = {'default': self.default_mutate, 'fixed_number': self.fixed_number_mutate, 
         'progression': self.progression_mutate,'resistance_model': self.resistance_model_mutate}
 
         PUSH_FUNCTIONS = {'default': self.default_push, 'prop': self.prop_push}
+
+         
         
         try:
-            self.get_birth_rate = BIRTH_FUNCTIONS[self.sim.params['br_function']]
+            self.br_function = BIRTH_FUNCTIONS[self.sim.params['br_function']]
         except(KeyError):
             print(f'birth rate function not defined. Must be one of {[k for k in BIRTH_FUNCTIONS.keys()]}')
             print('exiting...')
             sys.exit()
 
         try:
-            self.get_death_rate = DEATH_FUNCTIONS[self.sim.params['dr_function']]
+            self.dr_function = DEATH_FUNCTIONS[self.sim.params['dr_function']]
         except(KeyError):
             print(f'death rate function not defined. Must be one of {[k for k in DEATH_FUNCTIONS.keys()]}')
             print('exiting...')
@@ -121,23 +126,42 @@ class Cell():
             print('exiting...')
             sys.exit()
 
+    def get_birth_rate(self):
+        """wrapper function that returns the cell birth rate"""
+        return self.br_function(**self.sim.params['br_params'], is_birth = True)
+    def get_death_rate(self):
+        """wrapper function that returns the cell deathr rate"""
+        return self.dr_function(**self.sim.params['dr_params'], is_birth = False)
 
-    #BIRTH FUNCTIONS
-    def one_fixed_birth_rate(self, init_birth_rate):
+    
+    #Growth rate functions: either birth or death 
+    def one_fixed_rate(self, init_rate, is_birth = False):
         """default birth rate, just return the given birth rate"""
-        return init_birth_rate
-
-    #DEATH FUNCTIONS
+        return init_rate
+   
     """Using params file, get cell death rate for a given configuration"""
-    def one_fixed_death_rate(self,death_rate):
-        return death_rate
+    
         
-    def one_changing_death_rate(self,init_death_rate):
+    def one_changing_rate(self,init_rate, is_birth = False):
         s = self.sim.params['driver_advantage']
-        return init_death_rate*np.power(1-s, self.gen.n_drivers)
+        select_birth = self.sim.params['select_birth']
+        if is_birth and select_birth:
+            s = -s
+        elif not (is_birth and select_birth):
+            pass
+        else:
+            s = 0
+        return init_rate*np.power(1-s, self.gen.n_drivers)
         
-    def radial_death_rate(self,radius, inner_rate, outer_rate):
+    def radial_rate(self,radius, inner_rate, outer_rate, is_birth = False):
         s = self.sim.params['driver_advantage']
+        select_birth = self.sim.params['select_birth']
+        if is_birth and select_birth:
+            s = -s
+        elif not (is_birth and select_birth):
+            pass
+        else:
+            s = 0
         a = np.array(self.pos)
         b = np.array(self.sim.tumor.center)
         if np.linalg.norm(a-b) < radius:
@@ -146,9 +170,16 @@ class Cell():
         #print('out')
         return outer_rate*np.power(1-s, self.gen.n_drivers)
 
-    def radial_prop_death_rate(self, prop, inner_rate, outer_rate):
+    def radial_prop_rate(self, prop, inner_rate, outer_rate, is_birth = False):
         """ inner death rate if within prop% of radius, otherwise inner"""
         s = self.sim.params['driver_advantage']
+        select_birth = self.sim.params['select_birth']
+        if is_birth and select_birth:
+            s = -s
+        elif not (is_birth and select_birth):
+            pass
+        else:
+            s = 0
         n_cells = self.sim.tumor.N 
         n_driv = self.gen.n_drivers
         r = calc_radius(n_cells, self.sim.params['dim']) 
@@ -162,11 +193,18 @@ class Cell():
         #print('outside radius')
         return outer_rate*np.power(1-s,n_driv)
 
-    def radial_bern_death_rate(self, prop, inner_rate, outer_rate):
+    def radial_bern_rate(self, prop, inner_rate, outer_rate, is_birth = False):
         """death rate outer_rate with prob p = min(d(cell, center)/radius,1) and inner_rate with 
         prob 1-p
         """
         s = self.sim.params['driver_advantage']
+        select_birth = self.sim.params['select_birth']
+        if is_birth and select_birth:
+            s = -s
+        elif not (is_birth and select_birth):
+            pass
+        else:
+            s = 0
         n_cells = self.sim.tumor.N 
         n_driv = self.gen.n_drivers
         r = calc_radius(n_cells, self.sim.params['dim']) 
@@ -183,8 +221,15 @@ class Cell():
             return dr1
         return dr2
 
-    def nbr_based_death_rate(self, inner_rate, outer_rate):
+    def nbr_based_rate(self, inner_rate, outer_rate, is_birth = False):
         s = self.sim.params['driver_advantage']
+        select_birth = self.sim.params['select_birth']
+        if is_birth and select_birth:
+            s = -s
+        elif not (is_birth and select_birth):
+            pass
+        else:
+            s = 0
         empty_nbrs = self.get_empty_nbrs()
         n_driv= self.gen.n_drivers
         if len(empty_nbrs) > 0:
@@ -198,7 +243,7 @@ class Cell():
         of acquired resistance to treatment"""
 
         if self.gen.n_drivers < self.sim.params['mutate_params']['muts_to_res']:
-            return self.radial_death_rate(**dr_params)
+            return self.radial_rate(**dr_params)
         else: 
             return dr_params['inner_rate']
     
@@ -445,7 +490,7 @@ class Tumor():
         self.N = 1
         self.hit_bound = False 
         self.tracked_variants = set()
-        self.bmax = self.params['br_params']['init_birth_rate']
+        self.bmax = self.params['br_params']['init_rate']
         self.iter = 0
         self.t = 0
         self.next_snp = 0
@@ -501,7 +546,7 @@ class Tumor():
             nbr = nbrs[np.random.randint(0,nbrs.shape[0])]
             #print(f'chose nbr {nbr}')
             self.hit_bound = check_bound(nbr, self.params['boundary'])
-            br = cell.get_birth_rate(**self.params['br_params'])
+            br = cell.get_birth_rate()
             #print(br)
             if np.random.random() < br:
                 new_cell = Cell(self.sim, ID = self.iter+1, gen = gen, pos = tuple(nbr))
@@ -510,7 +555,7 @@ class Tumor():
             #mutate daughter cell, sample to determine whether to kill parent cell. If no, mutate parent cell 
                 new_cell.mutate(**self.params['mutate_params'])
             #if np.random.random() <cell.get_death_rate()/self.dmax: #comment out! 
-            dr = cell.get_death_rate(**self.params['dr_params'])
+            dr = cell.get_death_rate()
             #print(dr)
             if np.random.random() < dr:
                 #kill cell
@@ -530,7 +575,7 @@ class Tumor():
         gen = cell.gen
         nbrs = cell.get_empty_nbrs()
 
-        br = cell.get_birth_rate(**self.params['br_params'])
+        br = cell.get_birth_rate()
        
         #can_push = cell.get_push_rate()
         if nbrs.shape[0] >0:
@@ -548,7 +593,7 @@ class Tumor():
             #if np.random.random() <cell.get_death_rate()/self.dmax: #comment out! 
        
 
-        dr = cell.get_death_rate(**self.params['dr_params'])
+        dr = cell.get_death_rate()
         if np.random.random() < dr:
             self.remove_cell(cell)
         return
@@ -559,7 +604,7 @@ class Tumor():
         gen = birth_cell.gen
         nbrs = birth_cell.get_empty_nbrs()
 
-        br = birth_cell.get_birth_rate(**self.params['br_params'])
+        br = birth_cell.get_birth_rate()
        
         #can_push = cell.get_push_rate()
         if nbrs.shape[0] >0:
@@ -577,7 +622,7 @@ class Tumor():
             #if np.random.random() <cell.get_death_rate()/self.dmax: #comment out! 
        
         death_cell = self.cells.choose_random_item()
-        dr = death_cell.get_death_rate(**self.params['dr_params'])
+        dr = death_cell.get_death_rate()
         if np.random.random() < dr:
             self.remove_cell(death_cell)
         return
@@ -588,7 +633,7 @@ class Tumor():
         cell = self.cells.choose_random_item()
         #print(f'chose {cell}')
         gen = cell.gen
-        br = cell.get_birth_rate(**self.params['br_params'])
+        br = cell.get_birth_rate()
         
         if np.random.random() < br:
             direction = choose_direction(self.graph, cell.pos, self.sim.nbrs)
@@ -599,7 +644,7 @@ class Tumor():
                 self.add_cell(new_cell)
                 new_cell.mutate(**self.params['mutate_params'])
 
-        dr = cell.get_death_rate(**self.params['dr_params'])
+        dr = cell.get_death_rate()
 
         if np.random.random() < dr:
             self.remove_cell(cell)
@@ -785,7 +830,7 @@ if __name__ == "__main__":
     params['init_birth_rate'] = .6
     #params['dr_params']['init_death_rate'] = 0.6
     params['dr_params'] = {}
-    params['br_params'] = {'init_birth_rate':params['init_birth_rate']}
+    params['br_params'] = {'init_rate':params['init_birth_rate']}
     params['dr_params']['inner_rate'] = .1
     params['dr_params']['outer_rate'] = .9
     params['dr_params']['radius'] = calc_radius(5000, 2)

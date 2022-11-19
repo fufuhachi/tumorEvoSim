@@ -1,5 +1,4 @@
 #file with end-user functions to set parameters and run simulation 
-from lib2to3.pgen2 import driver
 import numpy as np
 import pickle
 import classes
@@ -74,11 +73,11 @@ def calc_radius(n_cells, dim):
 
 """wrapper to handle user parameters. Accepts a file or a set of keyword arguments """
 def config_params(kwargs):
-   
+    
     if 'dim' not in kwargs:
-            kwargs['dim']=DIM
+            kwargs['dim']=DIM #dimension of simulation can be 2 or 3
     if 'n_cells' not in kwargs:
-            kwargs['n_cells'] = MAX_POP
+            kwargs['n_cells'] = MAX_POP 
     if 'neighborhood' not in kwargs:
             kwargs['neighborhood'] = 'moore'
     if kwargs['neighborhood']!= 'moore':
@@ -86,6 +85,8 @@ def config_params(kwargs):
     
     if 'driver_advantage' not in kwargs:
             kwargs['driver_advantage'] = DRIVER_ADVANTAGE
+    if 'select_birth' not in kwargs:
+            kwargs['select_birth'] = False #seleciton actions on death by default and can only act on 1 
     if 'driver_rate' not in kwargs:
             kwargs['driver_rate'] = DRIVER_RATE
     if 'mutator_factor' not in kwargs:
@@ -119,19 +120,31 @@ def config_params(kwargs):
     if 'save_by' not in kwargs:
         kwargs['save_by'] = 'cells'#default to saving by cells
     
-        
-    if 'dr_params' not in kwargs:
+    #check growth params    
+    if 'dr_params' not in kwargs and 'dr_function' not in kwargs:
         kwargs['dr_function'] = 'default'
-        kwargs['dr_params'] = {'init_death_rate': kwargs['init_death_rate']}
+        kwargs['dr_params'] = {'init_rate': kwargs['init_death_rate']}
 
+    elif 'dr_params' in kwargs and 'dr_function' not in kwargs:
+        print('must specify dr function if dr params are specified\nexiting...')
+        sys.exit()
+    elif 'dr_params' not in kwargs:
+        kwargs['dr_params'] = {}
+    
     if kwargs['dr_function'] == 'resistance_model':
         assert(kwargs['mutate_function'] == 'resistance_model')
 
-
-    if 'br_params' not in kwargs:
+    if 'br_params' not in kwargs and 'br_function' not in kwargs:
         kwargs['br_function'] = 'default'
-        kwargs['br_params'] = {'init_birth_rate': kwargs['init_birth_rate']}
+        kwargs['br_params'] = {'init_rate': kwargs['init_birth_rate']}
 
+    elif 'br_params' in kwargs and 'br_function' not in kwargs:
+        print('must specify dr function if br params are specified\nexiting...')
+        sys.exit()
+
+    elif 'br_params' not in kwargs:
+        kwargs['br_params'] = {}
+    
     if 'mutate_params' not in kwargs:
         kwargs['mutate_function'] = 'default'
         kwargs['mutate_params'] = dict()
@@ -236,8 +249,22 @@ if __name__ == '__main__':
         config_file = sys.argv[1]
     except(IndexError):
         config_file = None
+    try: 
+        display = sys.argv[2]
+    except(IndexError):
+        display = False
     kwargs = get_kwargs_from_file(config_file)
     out = simulateTumor(**kwargs)
+    if display:
+        print('plotting tumor...')
+        import simulation
+        import seaborn as sns
+        import matplotlib.pyplot as plt
+        g = simulation.get_fitness_graph(out.tumor)
+        sns.heatmap(g)
+        plt.show()
+        simulation.plot_growth(out.tumor)
+        plt.show()
     
     #import simulation
     #import matplotlib.pyplot as plt
