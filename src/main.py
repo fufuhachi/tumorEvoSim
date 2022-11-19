@@ -265,6 +265,14 @@ if __name__ == '__main__':
         plt.show()
         simulation.plot_growth(out.tumor)
         plt.show()
+        summary = simulation.tumor_summary(out.tumor)
+        simulation.tumor_scatter(summary['x'], summary['y'], summary['death_rate'])
+        plt.title('death_rate distribution')
+        plt.show()
+        simulation.tumor_scatter(summary['x'], summary['y'], summary['birth_rate'])
+        plt.title('birth_rate distribution')
+        plt.show()
+
     
     #import simulation
     #import matplotlib.pyplot as plt

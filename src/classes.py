@@ -147,9 +147,7 @@ class Cell():
         select_birth = self.sim.params['select_birth']
         if is_birth and select_birth:
             s = -s
-        elif not (is_birth and select_birth):
-            pass
-        else:
+        elif is_birth or select_birth:
             s = 0
         return init_rate*np.power(1-s, self.gen.n_drivers)
         
@@ -158,9 +156,7 @@ class Cell():
         select_birth = self.sim.params['select_birth']
         if is_birth and select_birth:
             s = -s
-        elif not (is_birth and select_birth):
-            pass
-        else:
+        elif is_birth or select_birth:
             s = 0
         a = np.array(self.pos)
         b = np.array(self.sim.tumor.center)
@@ -176,9 +172,7 @@ class Cell():
         select_birth = self.sim.params['select_birth']
         if is_birth and select_birth:
             s = -s
-        elif not (is_birth and select_birth):
-            pass
-        else:
+        elif is_birth or select_birth:
             s = 0
         n_cells = self.sim.tumor.N 
         n_driv = self.gen.n_drivers
@@ -201,9 +195,7 @@ class Cell():
         select_birth = self.sim.params['select_birth']
         if is_birth and select_birth:
             s = -s
-        elif not (is_birth and select_birth):
-            pass
-        else:
+        elif is_birth or select_birth:
             s = 0
         n_cells = self.sim.tumor.N 
         n_driv = self.gen.n_drivers
@@ -226,9 +218,7 @@ class Cell():
         select_birth = self.sim.params['select_birth']
         if is_birth and select_birth:
             s = -s
-        elif not (is_birth and select_birth):
-            pass
-        else:
+        elif is_birth or select_birth:
             s = 0
         empty_nbrs = self.get_empty_nbrs()
         n_driv= self.gen.n_drivers

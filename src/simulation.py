@@ -11,9 +11,55 @@ from scipy.stats import binned_statistic
 import argparse 
 import sys
 import utils
-#simulation code
-#simulation overview (following Chkaidze et al. 2019):
-#set up 2d or 3d grid
+
+#tumor scatterplot
+def get_cmap(n, name='hsv'):
+    '''Returns a function that maps each index to a distinct
+    RGB color; the keyword argument name must be a standard mpl colormap name.'''
+    return plt.cm.get_cmap(name, n)
+
+def tumor_scatter(x,y,c, cmap_name = None, dim = 80):
+    """return 2d tumor scatterplot, accepts the x and y coords and contour value"""
+    unqs, idx = np.unique(c,return_inverse = True)
+    cmap = get_cmap(len(unqs), name = cmap_name)
+    plt.xlim((-dim,dim))
+    plt.ylim((-dim,dim))
+    plt.axis('square')
+    plt.scatter(x=x,y=y, c = c, cmap = cmap,marker = 's',s = 1)
+
+def tumor_summary(tumor, rep = 0):
+    """turn tumor into dataframe with all the information: 
+        ncells x ? matrix where columns are 'cell_ID' 'x','y' 'r' 'angle' 'genotype' 'n_drivers' 'drivers' 
+        'death rate' 'cell_hge' 
+
+        Version to work with tumor object as defined in classes.py as of the last commit on 11.18.22 
+        """
+    #turn list of cells into columns of information 
+    
+    decay = 33
+    mat = tumor.graph
+    cell_ID = mat[mat > 0]
+    x, y = np.indices(mat.shape)
+    x = x[mat >0] - tumor.center[0]
+    y = y[mat>0] - tumor.center[1]
+    r = np.sqrt(x**2 + y**2)
+    angle = (360/2/np.pi)*np.arctan2(y,x)
+    
+    genotype = np.array([tumor.cells.get_item(id).gen.ID for id in cell_ID], dtype = int)
+    n_drivers = np.array([tumor.cells.get_item(id).gen.n_drivers for id in cell_ID], dtype = int)
+    drivers = [tuple(tumor.cells.get_item(id).gen.drivers) for id in cell_ID]
+    
+    death_rate = [tumor.cells.get_item(id).get_death_rate() for id in cell_ID]
+    birth_rate = [tumor.cells.get_item(id).get_birth_rate() for id in cell_ID]
+    
+    df = pd.DataFrame({'cell_ID' : cell_ID, 'x':x,'y':y,'r':r,'angle':angle, 
+    'genotype':genotype,'n_drivers': n_drivers, 'drivers':drivers, 'death_rate': death_rate, 'birth_rate': birth_rate})
+    df['cell_hge'] = df['death_rate']/(df['birth_rate'] - df['death_rate'] + decay)
+    df['rep'] = rep
+    return df
+
+
+
 
 def stopping_condition(tumor):
     nmax = classes.params['n_cells']
