@@ -1,16 +1,12 @@
 #code for simulation
-from multiprocessing.dummy import Array
 import numpy as np
 import pandas as pd
-import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import classes
-import time
 from scipy.stats import binned_statistic
-import argparse 
 import sys
-import utils
+
 
 #tumor scatterplot
 def get_cmap(n, name='hsv'):
