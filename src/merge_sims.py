@@ -3,11 +3,12 @@ import numpy as np
 import pandas as pd
 import sys
 import classes
+import simulation
 import os
 
 #functions
-
-def tumor_summary(tumor, rep = 0):
+#depricated, use version in simulation.py
+'''def tumor_summary(tumor, rep = 0):
     """turn tumor into dataframe with all the information: 
         ncells x 5 matrix where columns are 'cell_ID' 'x','y' 'r' 'angle' 'genotype' 'n_drivers' 'drivers' """
     #turn list of cells into columns of information 
@@ -32,7 +33,7 @@ def tumor_summary(tumor, rep = 0):
     'genotype':genotype,'n_drivers': n_drivers, 'drivers':drivers, 'death_rate': death_rate})
     df['cell_hge'] = df['death_rate']/(b - df['death_rate'] + decay)
     df['rep'] = rep
-    return df
+    return df'''
 
 
 if __name__ == '__main__':
@@ -50,7 +51,7 @@ if __name__ == '__main__':
                 if file.split('_')[-1].startswith('time'):
                     
                     sim = classes.load_object(os.path.join(folder,file))
-                    summary = tumor_summary(sim.tumor, rep = rep)
+                    summary = simulation.tumor_summary(sim.tumor, rep = rep)
                     summary['t'] = sim.tumor.t
                     timepoints.append(summary)
             
