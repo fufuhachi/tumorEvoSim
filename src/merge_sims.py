@@ -37,8 +37,11 @@ import os
 
 
 if __name__ == '__main__':
-    max_rep = np.infty #change to desired number of replicates if less than total 
     folder_list = sys.argv[1]
+    try: 
+        max_rep = sys.argv[2]
+    except(IndexError):
+        max_rep = np.infty #change to desired number of replicates if less than total 
     with open(folder_list, 'r') as f:
         timepoints = []
         for folder in f.readlines():
