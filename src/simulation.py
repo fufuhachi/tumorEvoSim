@@ -3,7 +3,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import classes
+import json
+import ast
 from scipy.stats import binned_statistic
 import sys
 
@@ -14,7 +15,7 @@ def get_cmap(n, name='hsv'):
     RGB color; the keyword argument name must be a standard mpl colormap name.'''
     return plt.cm.get_cmap(name, n)
 
-def tumor_scatter(x,y,c, cmap_name = None, dim = 80):
+def tumor_scatter(x,y,c, cmap_name = None, dim = 80, show = True):
     """return 2d tumor scatterplot, accepts the x and y coords and contour value"""
     unqs, idx = np.unique(c,return_inverse = True)
     cmap = get_cmap(len(unqs), name = cmap_name)
@@ -22,7 +23,8 @@ def tumor_scatter(x,y,c, cmap_name = None, dim = 80):
     plt.ylim((-dim,dim))
     plt.axis('square')
     plt.scatter(x=x,y=y, c = c, cmap = cmap,marker = 's',s = 1)
-
+    if show:
+        plt.show() 
 def tumor_summary(tumor, rep = 0):
     """turn tumor into dataframe with all the information: 
         ncells x ? matrix where columns are 'cell_ID' 'x','y' 'r' 'angle' 'genotype' 'n_drivers' 'drivers' 
@@ -32,7 +34,7 @@ def tumor_summary(tumor, rep = 0):
         """
     #turn list of cells into columns of information 
     
-    decay = 33
+    decay = 33 #decay rate based on 30min half life of ctDNA from Reiter et al. 
     mat = tumor.graph
     cell_ID = mat[mat > 0]
     x, y = np.indices(mat.shape)
@@ -44,46 +46,24 @@ def tumor_summary(tumor, rep = 0):
     genotype = np.array([tumor.cells.get_item(id).gen.ID for id in cell_ID], dtype = int)
     n_drivers = np.array([tumor.cells.get_item(id).gen.n_drivers for id in cell_ID], dtype = int)
     drivers = [tuple(tumor.cells.get_item(id).gen.drivers) for id in cell_ID]
+    passengers = [tuple(tumor.cells.get_item(id).gen.passen) for id in cell_ID]
+
     
     death_rate = [tumor.cells.get_item(id).get_death_rate() for id in cell_ID]
     birth_rate = [tumor.cells.get_item(id).get_birth_rate() for id in cell_ID]
     
     df = pd.DataFrame({'cell_ID' : cell_ID, 'x':x,'y':y,'r':r,'angle':angle, 
-    'genotype':genotype,'n_drivers': n_drivers, 'drivers':drivers, 'death_rate': death_rate, 'birth_rate': birth_rate})
+    'genotype':genotype,'n_drivers': n_drivers, 'drivers':drivers,'passengers': passengers, 'death_rate': death_rate, 'birth_rate': birth_rate})
+
     df['cell_hge'] = df['death_rate']/(df['birth_rate'] - df['death_rate'] + decay)
     df['rep'] = rep
     return df
 
+def load_tumor_summary(path):
+    """loads a csv with the output from tumor_summary. Note: this only includes genotype number information as of now"""
+    output = pd.read_csv(path)
+    return output 
 
-
-
-def stopping_condition(tumor):
-    nmax = classes.params['n_cells']
-    imax = classes.params['max_iter']
-    maxxed_cells = tumor.N == nmax
-    maxxed_iter = tumor.iter > imax
-    return maxxed_cells or maxxed_iter or tumor.hit_bound
-def run(tumor = None):
-    t = []
-    n = []
-    if tumor is None:
-        tumor = classes.Tumor()
-    while not stopping_condition(tumor):
-        tumor.iterate()
-        if tumor.iter%40000 ==0:
-            print(f'size = {tumor.N} at {int(tumor.t/365)} years {tumor.t%365} days')
-
-    return tumor
-"""save tumor snapshots and further analysis"""
-def save_tumor(tumor):
-    #TODO
-    pass
-"""convert int to rbg tuple"""
-def int_to_rgb(RGBint):
-    Blue =  RGBint & 255
-    Green = (RGBint >> 8) & 255
-    Red =   (RGBint >> 16) & 255
-    return (Red, Blue, Green)
 def plot_tumor(tumor,drivers=False,trim = 0):
     graph = tumor.graph.copy()
     pos = np.array([np.array(item.pos) for item in tumor.cells.items])
@@ -99,7 +79,6 @@ def plot_tumor(tumor,drivers=False,trim = 0):
         sns.heatmap(graph,cbar= False,square = True)
         #plt.show()
     else:
-        print('not yet implemented!')
         raise(NotImplementedError)
 def plot_slice(tumor, ax = 0,trim=0):
     if len(tumor.graph.shape)==2:
