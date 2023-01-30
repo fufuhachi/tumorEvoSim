@@ -39,7 +39,7 @@ import os
 if __name__ == '__main__':
     folder_list = sys.argv[1]
     try: 
-        max_rep = sys.argv[2]
+        max_rep = int(sys.argv[2])
     except(IndexError):
         max_rep = np.infty #change to desired number of replicates if less than total 
     print(f'max rep: {max_rep}')
