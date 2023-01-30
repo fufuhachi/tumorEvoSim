@@ -43,25 +43,29 @@ if __name__ == '__main__':
     except(IndexError):
         max_rep = np.infty #change to desired number of replicates if less than total 
     print(f'max rep: {max_rep}')
+
+    completed = 0
     with open(folder_list, 'r') as f:
-        timepoints = []
+        dataframes = []
         for folder in f.readlines():
             folder = folder.strip('\n')
             print(folder)
             rep = int(folder.split('_')[-1])
-            if rep==max_rep:
+            if completed >= max_rep:
                 break
-            for file in os.listdir(folder):
-                if file.split('_')[-1].startswith('time'):
-                    
-                    sim = classes.load_object(os.path.join(folder,file))
-                    summary = simulation.tumor_summary(sim.tumor, rep = rep)
-                    summary['t'] = sim.tumor.t
-                    timepoints.append(summary)
-            
-            print(f'{folder} dataframes created')
+            else: 
+                for file in os.listdir(folder):
+                    if file.split('_')[-1].startswith('time'):
+                        
+                        sim = classes.load_object(os.path.join(folder,file))
+                        summary = simulation.tumor_summary(sim.tumor, rep = rep)
+                        summary['t'] = sim.tumor.t
+                        dataframes.append(summary)
+                completed+=1
+                print(f'{folder} dataframes created')
+
         print('concatenating all dataframes')
-        timedata = pd.concat(timepoints)
+        timedata = pd.concat(dataframes)
         print('writing to file')
         timedata.to_csv(f'experiment_nreps_{max_rep}.csv')
         print('done')
