@@ -119,6 +119,8 @@ def config_params(kwargs):
         kwargs['save_interval'] = MAX_POP #only save one 
     if 'save_by' not in kwargs:
         kwargs['save_by'] = 'cells'#default to saving by cells
+    elif kwargs['save_by'] == 'time':
+        kwargs['save_by']
     
     #check growth params    
     if 'dr_params' not in kwargs and 'dr_function' not in kwargs:
@@ -158,6 +160,8 @@ def config_params(kwargs):
         kwargs['push_function'] = 'default'
         kwargs['push_params'] = dict()
 
+    if 'model_params' not in kwargs:
+        kwargs['model_params'] = {}
 
     print('starting sanity checks...')
     #check replicate number validity

@@ -1,26 +1,7 @@
-from re import A
+
 import numpy as np
 import pickle
 import sys
-
-
-def set_nbrs(neighborhood, dim):
-            nbrs = []
-            if neighborhood == 'moore':
-                    for i in [0,-1,1]:
-                        for j in [0,-1,1]:
-                            if dim ==2:
-                                nbrs.append([i,j])
-                            else:
-                                for k in [0,-1,1]:
-                                    nbrs.append([i,j,k])
-                    nbrs = np.array(nbrs)[1:]
-            else:   
-                if dim==3:
-                    nbrs = np.array([[1,0,0], [-1,0,0], [0,1,0],[0,-1,0],[0,0,1],[0,0,-1]])
-                else:
-                    nbrs = np.array([[1,0],[-1,0],[0,1],[0,-1]])
-            return nbrs
 
 
 
@@ -35,8 +16,6 @@ class Simulation():
         self.N_traj = []
         self.nbrs = set_nbrs(params['neighborhood'], params['dim'])
 
-        
-        
     def stopping_condition(self):
         nmax = self.params['n_cells']
         imax = self.params['max_iter']
@@ -52,7 +31,8 @@ class Simulation():
             if self.tumor.iter%40000==0:
                 print(f'size = {self.tumor.N} at {int(self.tumor.t/365)} years {self.tumor.t%365} days')
                 if self.params['save_by'] == 'time':
-                    save_object(self, f'{self.params["exp_path"]}/rep={rep}_ncells={self.tumor.N}_time={self.tumor.t}.pkl')
+                    save_object(self, f'{self.params["exp_path"]}/rep={rep}_ncells={self.tumor.N}_time={self.tumor.t:.2f}.pkl')
+                    
             #    
             #else: 
             #    counter = self.tumor.N
@@ -128,10 +108,10 @@ class Cell():
 
     def get_birth_rate(self):
         """wrapper function that returns the cell birth rate"""
-        return self.br_function(**self.sim.params['br_params'], is_birth = True)
+        return max(0,min(1,self.br_function(**self.sim.params['br_params'], is_birth = True)))
     def get_death_rate(self):
         """wrapper function that returns the cell deathr rate"""
-        return self.dr_function(**self.sim.params['dr_params'], is_birth = False)
+        return max(0, min(1,self.dr_function(**self.sim.params['dr_params'], is_birth = False)))
 
     
     #Growth rate functions: either birth or death 
@@ -419,7 +399,7 @@ Attributes:
         self.passen_rate = self.sim.params['passen_rate']*np.power(self.sim.params['mutator_factor'], self.n_mutators)
         self.driver_rate = self.sim.params['driver_rate']*np.power(self.sim.params['mutator_factor'], self.n_mutators)
         self.mutator_rate = self.sim.params['mutator_rate']*np.power(self.sim.params['mutator_factor'], self.n_mutators)
-       
+        
         self.parent = parent
         self.children = np.array([],dtype = int)
         self.number = 1
@@ -498,7 +478,9 @@ class Tumor():
             print(f'model {self.params["model"]} not defined!\nexiting...')
             sys.exit()
 
-    
+    def run_growth_model(self):
+        """wrapper to run growth model"""
+        return self.model(**self.params['model_params'])
     def update_time(self):
         """update the time of the simulation after a birth/death event """
         self.t+=np.log(2)/(self.bmax*self.N)
@@ -506,7 +488,7 @@ class Tumor():
 
     def iterate(self):
         self.update_time()
-        self.model() 
+        self.run_growth_model() 
         migrate_event = 0
         if self.N > 0:
             if 0 < self.params['n_migrations'] < 1:
@@ -525,7 +507,7 @@ class Tumor():
 
 
     def bdg_spatialDeath(self):
-        """Function to simulate birth, death, and mutation. Note: Death also spatially determined here. Bug in old code"""
+        """Function to simulate birth, death, and mutation. Note: Death also spatially determined here. Bug in old code. This represents Waclaw 2015's 'quiescent core' model"""
         
         cell = self.cells.choose_random_item()
         #print(f'chose {cell}')
@@ -589,6 +571,8 @@ class Tumor():
         return
 
     def bdg_nonSpatialSeparateDeath(self):
+        """version of bdg_nonSpatialDeath where the cell chosen for death is different from the cell chosen for birth and independently chosen.
+        This is a control to ensure the former scheme does not bias the simulation results (statistically it shouldn't)"""
         birth_cell = self.cells.choose_random_item()
         #print(f'chose {cell}')
         gen = birth_cell.gen
@@ -618,15 +602,19 @@ class Tumor():
         return
 
 
-    def nonSpatialGrowth(self):
-        """growth where cells are randomly pushed to make room for offspring at every timestep"""
+    def nonSpatialGrowth(self,push_forward= False):
+        """growth where cells are randomly pushed to make room for offspring at every timestep, not BDG"""
         cell = self.cells.choose_random_item()
         #print(f'chose {cell}')
         gen = cell.gen
         br = cell.get_birth_rate()
         
         if np.random.random() < br:
-            direction = choose_direction(self.graph, cell.pos, self.sim.nbrs)
+            if not push_forward:
+                direction = choose_direction(self.graph, cell.pos, self.sim.nbrs)
+            else:
+                #choose lattice direction closest to radial vector
+                direction = get_closest_vector(np.array(cell.pos) - np.array(self.center), self.sim.nbrs)
             birth_pos = cell.pos
             pushed = self.simple_pushing(cell = cell, direction = direction)
             if pushed:
@@ -765,7 +753,7 @@ class ListDict(object):
         return f'{str([item.__repr__() for item in self.items])}'
 
 
-#other functions
+#helper functions
 """return spherical radius of tumor"""
 def calc_radius(n_cells, dim):
     if dim==2:
@@ -811,12 +799,45 @@ def choose_direction(graph, start_pos, directions):
     
     return direction
 
+def set_nbrs(neighborhood, dim):
+    """configure the neighboring cells on the lattice"""
+    nbrs = []
+    if neighborhood == 'moore':
+            for i in [0,-1,1]:
+                for j in [0,-1,1]:
+                    if dim ==2:
+                        nbrs.append([i,j])
+                    else:
+                        for k in [0,-1,1]:
+                            nbrs.append([i,j,k])
+            nbrs = np.array(nbrs)[1:]
+    else:   
+        if dim==3:
+            nbrs = np.array([[1,0,0], [-1,0,0], [0,1,0],[0,-1,0],[0,0,1],[0,0,-1]])
+        else:
+            nbrs = np.array([[1,0],[-1,0],[0,1],[0,-1]])
+    return nbrs
+
+
+
+
+def get_closest_vector(v, vectors):
+    """returns a vector from vectors that is the closest to v in angle
+    inputs: v: 1d numpy array as row vector
+            vectors: 2d numpy array where rows are the vectors of interest
+    """
+    if (v == 0).all():
+        return v
+    u = v/np.linalg.norm(v)
+    return vectors[np.argmax(vectors@u.T)]
+
+
 if __name__ == "__main__":
     import seaborn as sns
     import matplotlib.pyplot as plt
-    import simulation
+    #import simulation
     #np.random.seed(6)
-    params = load_object("params.pkl")
+    params = {'dim':2}#load_object("params.pkl")
     params['init_birth_rate'] = .6
     #params['dr_params']['init_death_rate'] = 0.6
     params['dr_params'] = {}
@@ -825,15 +846,16 @@ if __name__ == "__main__":
     params['dr_params']['outer_rate'] = .9
     params['dr_params']['radius'] = calc_radius(5000, 2)
     params['boundary'] = 300
-    params['n_cells'] = 20000
-    params['n_migrations'] = 5
+    params['n_cells'] = 10000
+    #params['n_migrations'] = 5
    
     params['driver_rate'] = .01
     params['dr_function'] = 'radial'
     params['br_function'] = 'default'
     params['model'] = 'nonSpatial'
-    params['mutate_function'] = 'fixed_number'
-    params['mutate_params'] = {'number': 1, 'by': 'size', 'value': 5000}
+    params['model_params'] = {'push_forward':True}
+    #params['mutate_function'] = 'fixed_number'
+    #params['mutate_params'] = {'number': 1, 'by': 'size', 'value': 5000}
     
     sys.exit()
     N = 0
