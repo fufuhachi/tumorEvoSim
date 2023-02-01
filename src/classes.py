@@ -69,7 +69,7 @@ class Cell():
         DEATH_FUNCTIONS = {'default': self.one_changing_rate,
         'radial':self.radial_rate,'one_changing':self.one_changing_rate, 
         'radial_prop': self.radial_prop_rate, 'radial_bern': self.radial_bern_rate, 
-        'nbr_based': self.nbr_based_rate, 'resistance_model': self.resistance_model_death}
+        'nbr_based': self.nbr_based_rate, 'resistance_model': self.resistance_model_death, 'radial_nbr_hybrid':self.radial_nbr_hybrid}
 
         MUTATE_FUNCTIONS = {'default': self.default_mutate, 'fixed_number': self.fixed_number_mutate, 
         'progression': self.progression_mutate,'resistance_model': self.resistance_model_mutate}
@@ -216,6 +216,23 @@ class Cell():
             return self.radial_rate(**dr_params)
         else: 
             return dr_params['inner_rate']
+    def radial_nbr_hybrid(self, init_radius, inner_rate, outer_rate, is_birth = False):
+        """assume as in radial_rate that the outer death rate is experienced past a fixed radius
+        However, beyond that radius, only cells with empty neighbors experience the outer death rate"""
+        s = self.sim.params['driver_advantage']
+        select_birth = self.sim.params['select_birth']
+        if is_birth and select_birth:
+            s = -s
+        elif is_birth or select_birth:
+            s = 0
+        a = np.array(self.pos)
+        b = np.array(self.sim.tumor.center)
+        if np.linalg.norm(a-b) < init_radius: #if cell is in the inner region
+            #print('in')
+            return inner_rate*np.power(1-s, self.gen.n_drivers)
+        else:
+            return self.nbr_based_rate(inner_rate, outer_rate, is_birth)
+
     
     #MUTATE FUNCTIONS
         
@@ -615,6 +632,8 @@ class Tumor():
             else:
                 #choose lattice direction closest to radial vector
                 direction = get_closest_vector(np.array(cell.pos) - np.array(self.center), self.sim.nbrs)
+                
+                
             birth_pos = cell.pos
             pushed = self.simple_pushing(cell = cell, direction = direction)
             if pushed:
@@ -827,7 +846,7 @@ def get_closest_vector(v, vectors):
             vectors: 2d numpy array where rows are the vectors of interest
     """
     if (v == 0).all():
-        return v
+        return vectors[np.random.randint(low = 0, high = len(vectors))]
     u = v/np.linalg.norm(v)
     return vectors[np.argmax(vectors@u.T)]
 
