@@ -20,7 +20,7 @@ datapath = sys.argv[-1]
 print('loading data')
 
 #setting globals
-FOLDER = '/Users/trachman/Documents/current/tumor_stuff/tumorEvoSim/radial_nbr_hybrid_experiments/mut1e-3'
+FOLDER = '/home/trachman/sim2/hybrid_bdg/netneg/birthsel'
 PATH = f'{FOLDER}/rep0.csv'
 RADIUS = 40 #radius of inner region (get from experiment parameter file)
 CUTOFF = .9 #cutoff for fraction of a clone over time that must live in outer region for it to count as a range expander
