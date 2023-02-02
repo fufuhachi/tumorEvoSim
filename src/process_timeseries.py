@@ -15,7 +15,7 @@ import simulation
 import ast
 import json
 #read file 
-datapath = sys.argv[-1]
+
 
 print('loading data')
 
