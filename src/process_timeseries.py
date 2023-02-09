@@ -14,25 +14,25 @@ import seaborn as sns
 import simulation
 import ast
 import json
+from scipy.stats import wilcoxon 
 #read file 
 
-
+DATAPATH = sys.argv[-1]
 print('loading data')
-
 #setting globals
-FOLDER = '/home/trachman/sim2/hybrid_bdg/netneg/birthsel'
-PATH = f'{FOLDER}/rep0.csv'
+#FOLDER = '/home/trachman/sim2/hybrid_bdg/netneg/birthsel'
+#PATH = f'{FOLDER}/rep0.csv'
 RADIUS = 40 #radius of inner region (get from experiment parameter file)
 CUTOFF = .9 #cutoff for fraction of a clone over time that must live in outer region for it to count as a range expander
 VAF_CUTOFF = .01
-SAVEFIGFOLDER = f'../tumorEvoSim/{FOLDER}/figs'
+SAVEFIGFOLDER = 'figs'
 Path(SAVEFIGFOLDER).mkdir(parents=True, exist_ok=True)
 #titlestring = 'expon. growth death-based selection'
 TITLESTRING = 'bdg moving edge birth-based selection'
 MIN_FREQUENCY = 0
 N_CLONES_TO_PLOT = 100
 
-timedata = pd.read_csv(datapath)
+timedata = pd.read_csv(DATAPATH)
 timedata['cell_hge'] = timedata['death_rate']/(timedata['birth_rate']-timedata['death_rate']+33)
 timedata['is_outer'] = timedata['r'] > RADIUS
 outer_count = timedata.groupby(['rep','t'])['is_outer'].sum()
@@ -56,6 +56,36 @@ top_gens = max_freqs.sort_values()[-N_CLONES_TO_PLOT:]
 
 clone_outer_fraction = (timedata.groupby(['rep','genotype'])['is_outer'].sum()/timedata.groupby(['rep','genotype'])['is_outer'].count()).reset_index()
 clone_outer_fraction['range_expander'] = clone_outer_fraction['is_outer'] > CUTOFF
+
+#kl divergence 
+print('plotting KLD...')
+kld = (comparison['tissue']*(np.log(comparison['tissue']/comparison['blood']))).groupby(['rep','t']).sum().reset_index()
+kld['kld'] = kld[0]
+kld.drop(0, axis = 1)
+scaled_time = kld.groupby('rep').apply(lambda x: x['t']/x['t'].max()).reset_index()['t']
+kld['scaled_time'] = scaled_time
+kld['binned'] = pd.cut(scaled_time, bins = 20).apply(lambda x: np.round(x.mid,2))
+sns.boxplot(data = kld, x = 'binned', y = 'kld')
+plt.xticks(rotation = 45)
+plt.xlabel('scaled time')
+plt.ylabel('KLD')
+plt.savefig(f'{SAVEFIGFOLDER}/kld.png')
+plt.show(block = False)
+
+#wilcoxon signed-rank test
+print('plotting Wilcoxon signed-rank test')
+pval = comp_reset.groupby(['rep','t']).apply(lambda x: wilcoxon(x['blood'], x['tissue'],zero_method = "pratt",alternative = "less")[1]).reset_index()
+pval['binned'] = kld['binned']
+pval['logp'] = np.log10(pval[0])
+
+
+sns.boxplot(data = pval, x = 'binned', y ='logp')
+plt.hlines(y = np.log10(.05), xmin = 0, xmax = 20, linestyles = ['--'],colors = ['r'],label = 'p = .05')
+plt.xticks(rotation = 45)
+plt.savefig(f'{SAVEFIGFOLDER}/wilcoxon.png')
+plt.title(titlestring)
+plt.legend()
+plt.show(block  = False)
 
 #plot clone frequencies for each replicate
 print('plotting clone frequencies for each replicate')
@@ -96,7 +126,8 @@ def plot_wrapper(toplot, label):
     plt.savefig(f'{SAVEFIGFOLDER}/driverPlot_{label}.png')
     plt.show(block = False)
 
-timedata[timedata['rep']==0].groupby(['rep','t']).apply(lambda x: plot_wrapper(x, f't = {x.name[1]:.2f}'))
+#rep0data = timedata[timedata['rep']==0]
+#rep0data.groupby(['rep','t']).apply(lambda x: plot_wrapper(x, f't = {x.name[1]:.2f}'))
 
 diffsum = comp_reset.groupby(['rep','genotype'])['diff'].sum().reset_index()
 clone_outer_fraction['diffsum'] = diffsum['diff']
