@@ -32,7 +32,7 @@ SEED = 123
 
 
 
-def check_fcn_args(fcn,params,kwargs):
+"""def check_fcn_args(fcn,params,kwargs):
     args = inspect.getfullargspec(fcn)[0]
     for a in args:
         if a != 'cell':
@@ -43,7 +43,7 @@ def check_fcn_args(fcn,params,kwargs):
                 except(AssertionError):
                     print(f'{a} must be defined when using {fcn.__name__}')
                     print('exiting...')
-                    sys.exit() 
+                    sys.exit()"""
 
 def get_kwargs_from_file(path):
     if path is None:
@@ -73,7 +73,6 @@ def calc_radius(n_cells, dim):
 
 """wrapper to handle user parameters. Accepts a file or a set of keyword arguments """
 def config_params(kwargs):
-    
     if 'dim' not in kwargs:
             kwargs['dim']=DIM #dimension of simulation can be 2 or 3
     if 'n_cells' not in kwargs:
@@ -83,8 +82,8 @@ def config_params(kwargs):
     if kwargs['neighborhood']!= 'moore':
         kwargs['neighborhood'] = 'von_neumann'
     
-    if 'driver_advantage' not in kwargs:
-            kwargs['driver_advantage'] = DRIVER_ADVANTAGE
+    #if 'driver_advantage' not in kwargs:
+    #        kwargs['driver_advantage'] = DRIVER_ADVANTAGE
     if 'select_birth' not in kwargs:
             kwargs['select_birth'] = False #seleciton actions on death by default and can only act on 1 
     if 'driver_rate' not in kwargs:
@@ -140,7 +139,7 @@ def config_params(kwargs):
         kwargs['br_function'] = 'default'
         kwargs['br_params'] = {'init_rate': kwargs['init_birth_rate']}
 
-    elif 'br_params' in kwargs and 'br_function' not in kwargs:
+    if 'br_params' in kwargs and 'br_function' not in kwargs:
         print('must specify dr function if br params are specified\nexiting...')
         sys.exit()
 
