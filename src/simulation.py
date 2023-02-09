@@ -49,9 +49,17 @@ def tumor_summary(tumor, rep = 0):
     passengers = [tuple(tumor.cells.get_item(id).gen.passen) for id in cell_ID]
 
     
-    death_rate = [tumor.cells.get_item(id).get_death_rate() for id in cell_ID]
-    birth_rate = [tumor.cells.get_item(id).get_birth_rate() for id in cell_ID]
     
+    #account for spatial death - CHANGE THIS IN Cell class !!!!!! spatial effect on rate should be defined by growth model
+    if tumor.params['model'] == 'bdg_spatialDeath':
+        death_rate = [0 if (tumor.cells.get_item(id).get_empty_nbrs()).shape[0]==0 else tumor.cells.get_item(id).get_death_rate() for id in cell_ID]
+    else:
+        death_rate = [tumor.cells.get_item(id).get_death_rate() for id in cell_ID]
+    if tumor.params['model'].split('_')[0] == 'bdg':
+        birth_rate = [0 if (tumor.cells.get_item(id).get_empty_nbrs()).shape[0]==0 else tumor.cells.get_item(id).get_birth_rate() for id in cell_ID]
+    else:
+        birth_rate = [tumor.cells.get_item(id).get_birth_rate() for id in cell_ID]
+
     df = pd.DataFrame({'cell_ID' : cell_ID, 'x':x,'y':y,'r':r,'angle':angle, 
     'genotype':genotype,'n_drivers': n_drivers, 'drivers':drivers,'passengers': passengers, 'death_rate': death_rate, 'birth_rate': birth_rate})
 
