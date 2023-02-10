@@ -54,20 +54,23 @@ if __name__ == '__main__':
             if completed >= max_rep:
                 break
             else: 
-                for file in os.listdir(folder):
-                    if file.split('_')[-1].startswith('time'):
-                        
-                        sim = classes.load_object(os.path.join(folder,file))
-                        summary = simulation.tumor_summary(sim.tumor, rep = rep)
-                        summary['t'] = sim.tumor.t
-                        dataframes.append(summary)
-                completed+=1
-                print(f'{folder} dataframes created')
+                try:
+                    for file in os.listdir(folder):
+                        if file.split('_')[-1].startswith('time'):
+                            
+                            sim = classes.load_object(os.path.join(folder,file))
+                            summary = simulation.tumor_summary(sim.tumor, rep = rep)
+                            summary['t'] = sim.tumor.t
+                            dataframes.append(summary)
+                    completed+=1
+                    print(f'{folder} dataframes created')
+                except(FileNotFoundError):
+                    print(f'{folder} not found. Trying next folder')
 
         print('concatenating all dataframes')
         timedata = pd.concat(dataframes)
         print('writing to file')
-        timedata.to_csv(f'experiment_nreps_{max_rep}.csv')
+        timedata.to_csv(f'experiment_nreps_{completed}.csv')
         print('done')
 
     
