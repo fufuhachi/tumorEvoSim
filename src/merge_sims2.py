@@ -60,7 +60,7 @@ if __name__ == '__main__':
     print(f'processing {len(folders)} folders')
     
     #with Pool(num_workers) as pool:
-    dataframes = map(process_folder2, zip(folders,repeat(num_workers)))#pool.map(process_folder, folders)
+    dataframes = [process_folder2(folder, num_workers) for folder in folders] #pool.map(process_folder, folders)
     dataframes = [df for df in dataframes if df is not None] # remove None values
     
     print('concatenating all dataframes')
