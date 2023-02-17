@@ -26,7 +26,7 @@ def process_folder(folder):
         rep = int(folder.split('_')[-1])
         files = os.listdir(folder)
         summaries = [process_file(folder, file, rep) for folder, file, rep in zip(repeat(folder),files, repeat(rep))]
-        return [summary for summary in summaries if summary is not None]
+        return pd.concat([summary for summary in summaries if summary is not None])
     except(FileNotFoundError):
         print(f'{folder} not found. Trying next folder')
 
