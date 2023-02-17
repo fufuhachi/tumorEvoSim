@@ -18,7 +18,7 @@ while read folder; do
     if [ -d "$folder" ]; then
         # Loop through each file in folder and write folder/file to output file
         for file in $folder/*; do
-            echo "$folder/$file" >> $output_file
+            echo "$folder/${file##*/}" >> $output_file
         done
     else
         echo "Folder $folder not found. Skipping."
