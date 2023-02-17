@@ -17,8 +17,7 @@ def process_file(file):
         return summary
 
 if __name__ == "__main__":
-    with open(sys.argv[1],'r') as f:
-        files = f.splitlines()
+    files = open(sys.argv[1]).read().splitlines()
     num_workers = int(sys.argv[2]) if len(sys.argv) > 3 else cpu_count()
     print(f'using {num_workers} workers')
     with Pool(num_workers) as pool:
