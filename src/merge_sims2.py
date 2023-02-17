@@ -26,7 +26,7 @@ def process_folder(folder):
         files = os.listdir(folder)
         summaries = []
         
-        summaries = map(process_file, zip(repeat(folder),[(file, rep) for file in files]))
+        summaries = map(process_file, zip(repeat(folder),[file for file in files], repeat(rep)))
         return [summary for summary in summaries if summary is not None]
     except(FileNotFoundError):
         print(f'{folder} not found. Trying next folder')
