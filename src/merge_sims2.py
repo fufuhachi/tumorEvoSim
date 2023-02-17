@@ -25,8 +25,8 @@ def process_folder(folder):
         rep = int(folder.split('_')[-1])
         files = os.listdir(folder)
         summaries = []
-        with Pool() as pool:
-            summaries = pool.starmap(process_file, zip(repeat(folder),[(file, rep) for file in files]))
+        
+        summaries = map(process_file, zip(repeat(folder),[(file, rep) for file in files]))
         return [summary for summary in summaries if summary is not None]
     except(FileNotFoundError):
         print(f'{folder} not found. Trying next folder')
