@@ -64,7 +64,7 @@ binned_time = pd.cut(scaled_time, bins = 20).apply(lambda x: np.round(x.mid,2))
 
 #wilcoxon signed-rank test
 print('computing wilcoxon test')
-wilcox= comp_reset.groupby(['rep','t']).apply(lambda x: wilcoxon(x['blood'], x['tissue'],zero_method = "pratt",alternative = "less")[1]).reset_index()
+wilcox= comp_reset.groupby(['rep','t']).apply(lambda x: wilcoxon(x['blood'], x['tissue'],zero_method = "pratt")[1]).reset_index()
 wilcox['binned'] = binned_time
 wilcox['-log10p'] = -np.log10(wilcox[0])
 
@@ -75,10 +75,10 @@ plt.savefig(f'{SAVEFIGFOLDER}/wilcoxon.png')
 plt.title(TITLESTRING)
 plt.legend()
 plt.show(block  = False)
-
+plt.close()
 #kolmogorov-smirnov 2 sample test 
 print('computing ks test')
-ks = comp_reset.groupby(['rep','t']).apply(lambda x: ks_2samp(x['blood'], x['tissue'],alternative = "less")[1]).reset_index()
+ks = comp_reset.groupby(['rep','t']).apply(lambda x: ks_2samp(x['blood'], x['tissue'])[1]).reset_index()
 ks['binned'] = binned_time
 ks['-log10p'] = -np.log10(ks[0])
 
@@ -89,7 +89,7 @@ plt.savefig(f'{SAVEFIGFOLDER}/ks_2samp.png')
 plt.title(TITLESTRING)
 plt.legend()
 plt.show(block  = False)
-
+plt.close()
 
 
 #plot clone frequencies for each replicate
@@ -124,7 +124,7 @@ for rep in replist:
     ax1.set_xlabel('time')
     plt.savefig(f'{SAVEFIGFOLDER}/timeplot_rep_{rep}.png')
     plt.show(block = False)
-
+    plt.close()
 #save comparison file
 comp_reset.to_csv(os.path.join(OUTDIR,'comp.csv'))
 #save analysis files
