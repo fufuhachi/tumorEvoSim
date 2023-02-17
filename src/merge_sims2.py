@@ -36,7 +36,7 @@ def process_folder2(folder, n_worker):
         files = os.listdir(folder)
         summaries = []
         with Pool(n_worker) as pool:
-            summaries = pool.starmap(process_file, [(file, rep) for file in files])
+            summaries = pool.starmap(process_file, zip(repeat(folder),files, repeat(rep)))
         return pd.concat([summary for summary in summaries if summary is not None])
     except(FileNotFoundError):
         print(f'{folder} not found. Trying next folder')
