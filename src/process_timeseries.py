@@ -65,7 +65,7 @@ wilcox= comp_reset.groupby(['rep','t']).apply(lambda x: wilcoxon(x['blood'], x['
 wilcox['binned'] = binned_time
 wilcox['-log10p'] = -np.log10(wilcox[0])
 
-sns.boxplot(data = wilcox, x = 'binned', y ='logp')
+sns.boxplot(data = wilcox, x = 'binned', y ='-log10p')
 plt.hlines(y = np.log10(.05), xmin = 0, xmax = 20, linestyles = ['--'],colors = ['r'],label = 'p = .05')
 plt.xticks(rotation = 45)
 plt.savefig(f'{SAVEFIGFOLDER}/wilcoxon.png')
@@ -79,7 +79,7 @@ ks = comp_reset.groupby(['rep','t']).apply(lambda x: ks_2samp(x['blood'], x['tis
 ks['binned'] = binned_time
 ks['-log10p'] = -np.log10(ks[0])
 
-sns.boxplot(data = ks, x = 'binned', y ='logp')
+sns.boxplot(data = ks, x = 'binned', y ='-log10p')
 plt.hlines(y = np.log10(.05), xmin = 0, xmax = 20, linestyles = ['--'],colors = ['r'],label = 'p = .05')
 plt.xticks(rotation = 45)
 plt.savefig(f'{SAVEFIGFOLDER}/ks_2samp.png')
