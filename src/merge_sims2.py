@@ -21,6 +21,7 @@ def process_file(folder,file, rep):
         return summary
 
 def process_folder(folder):
+    print(f'processing {folder}')
     try:
         rep = int(folder.split('_')[-1])
         files = os.listdir(folder)
