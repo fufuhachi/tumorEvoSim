@@ -24,10 +24,12 @@ print('loading data')
 RADIUS = 40 #radius of inner region (get from experiment parameter file)
 CUTOFF = .9 #cutoff for fraction of a clone over time that must live in outer region for it to count as a range expander
 VAF_CUTOFF = .01
-SAVEFIGFOLDER = 'figs'
+
 OUTDIR = 'analysis'
-Path(SAVEFIGFOLDER).mkdir(parents=True, exist_ok=True)
+SAVEFIGFOLDER = os.path.join(OUTDIR,'figs')
 Path(OUTDIR).mkdir(parents=True, exist_ok=True)
+Path(SAVEFIGFOLDER).mkdir(parents=True, exist_ok=True)
+
 #titlestring = 'expon. growth death-based selection'
 TITLESTRING = 'bdg moving edge birth-based selection'
 MIN_FREQUENCY = 0
