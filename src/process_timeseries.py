@@ -58,7 +58,7 @@ top_gens = max_freqs.sort_values()[-N_CLONES_TO_PLOT:]
 clone_outer_fraction = (timedata.groupby(['rep','genotype'])['is_outer'].sum()/timedata.groupby(['rep','genotype'])['is_outer'].count()).reset_index()
 clone_outer_fraction['range_expander'] = clone_outer_fraction['is_outer'] > CUTOFF
 
-scaled_time = timedata.groupby('rep').apply(lambda x: x['t']/x['t'].max()).reset_index()['t']
+scaled_time = comp_reset.groupby('rep').apply(lambda x: x['t']/x['t'].max()).reset_index()['t']
 binned_time = pd.cut(scaled_time, bins = 20).apply(lambda x: np.round(x.mid,2))
 
 
@@ -69,7 +69,7 @@ wilcox['binned'] = binned_time
 wilcox['-log10p'] = -np.log10(wilcox[0])
 
 sns.boxplot(data = wilcox, x = 'binned', y ='-log10p')
-plt.hlines(y = np.log10(.05), xmin = 0, xmax = 20, linestyles = ['--'],colors = ['r'],label = 'p = .05')
+plt.hlines(y = -np.log10(.05), xmin = 0, xmax = 20, linestyles = ['--'],colors = ['r'],label = 'p = .05')
 plt.xticks(rotation = 45)
 plt.savefig(f'{SAVEFIGFOLDER}/wilcoxon.png')
 plt.title(TITLESTRING)
@@ -83,7 +83,7 @@ ks['binned'] = binned_time
 ks['-log10p'] = -np.log10(ks[0])
 
 sns.boxplot(data = ks, x = 'binned', y ='-log10p')
-plt.hlines(y = np.log10(.05), xmin = 0, xmax = 20, linestyles = ['--'],colors = ['r'],label = 'p = .05')
+plt.hlines(y = -np.log10(.05), xmin = 0, xmax = 20, linestyles = ['--'],colors = ['r'],label = 'p = .05')
 plt.xticks(rotation = 45)
 plt.savefig(f'{SAVEFIGFOLDER}/ks_2samp.png')
 plt.title(TITLESTRING)
