@@ -127,5 +127,5 @@ for rep in replist:
 comp_reset.to_csv(os.path.join(OUTDIR,'comp.csv'))
 #save analysis files
 wilcox.to_csv(os.path.join(OUTDIR,'wilcox.csv'))
-ks.to_csv(Path.join(OUTDIR,'ks.csv'))
+ks.to_csv(os.path.join(OUTDIR,'ks.csv'))
 print('done')
