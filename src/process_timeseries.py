@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import wilcoxon 
 from scipy.stats import ks_2samp
+import os
 #read file 
 
 DATAPATH = sys.argv[-1]
@@ -123,8 +124,8 @@ for rep in replist:
     plt.show(block = False)
 
 #save comparison file
-comp_reset.to_csv(Path.join(OUTDIR,'comp.csv'))
+comp_reset.to_csv(os.path.join(OUTDIR,'comp.csv'))
 #save analysis files
-wilcox.to_csv(Path.join(OUTDIR,'wilcox.csv'))
+wilcox.to_csv(os.path.join(OUTDIR,'wilcox.csv'))
 ks.to_csv(Path.join(OUTDIR,'ks.csv'))
 print('done')
