@@ -16,10 +16,8 @@ while read folder; do
 
     # Check if folder exists
     if [ -d "$folder" ]; then
-        # Loop through each file in folder and write folder/file to output file
-        for file in $folder/*; do
-            echo "$folder/$file" >> $output_file
-        done
+        # Append list of files in folder to output file
+        ls $folder >> $output_file
     else
         echo "Folder $folder not found. Skipping."
     fi
