@@ -31,6 +31,7 @@ def process_folder1(folder):
         print(f'{folder} not found. Trying next folder')
 
 def process_folder2(folder, n_worker):
+    print(f'processing {folder}')
     try:
         rep = int(folder.split('_')[-1])
         files = os.listdir(folder)
