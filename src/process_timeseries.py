@@ -68,6 +68,8 @@ clone_outer_fraction['range_expander'] = clone_outer_fraction['is_outer'] > CUTO
 
 scaled_time = comp_reset.groupby('rep')['t'].transform(lambda x: x/x.max())
 binned_time = pd.cut(scaled_time, bins = 20).apply(lambda x: np.round(x.mid,2))
+comp_reset['norm_t'] = scaled_time
+comp_reset['norm_t_binned'] = binned_time.astype(float)
 
 
 #wilcoxon signed-rank test
