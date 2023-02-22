@@ -51,14 +51,22 @@ blood = timedata.groupby(['rep','t','genotype'])['cell_hge'].sum()/timedata.grou
 
 comparison = tissue.compare(blood)
 comparison.columns = ['tissue','blood']
+comparison['diff'] = (comparison['blood'] - comparison['tissue'])
+comparison['pcterr'] = 100*(comparison['blood'] - comparison['tissue'])/comparison['tissue']
+comparison['logprob'] = np.log10((1e-10+comparison['blood'])/(1e-10+comparison['tissue']))
 comp_reset = comparison.reset_index()
+comp_reset['cell_ID'] = timedata['cell_ID']
+comp_reset['cell_hge'] = timedata['cell_hge']
+comp_reset['is_outer'] = timedata['is_outer']
+comp_reset['n_drivers'] = timedata['n_drivers']
+comp_reset['death_rate'] = timedata['death_rate']
 max_freqs = comp_reset.groupby(['rep','genotype'])['blood'].max()
 top_gens = max_freqs.sort_values()[-N_CLONES_TO_PLOT:]
 
 clone_outer_fraction = (timedata.groupby(['rep','genotype'])['is_outer'].sum()/timedata.groupby(['rep','genotype'])['is_outer'].count()).reset_index()
 clone_outer_fraction['range_expander'] = clone_outer_fraction['is_outer'] > CUTOFF
 
-scaled_time = comp_reset.groupby('rep').apply(lambda x: x['t']/x['t'].max()).reset_index()['t']
+scaled_time = comp_reset.groupby('rep')['t'].transform(lambda x: x/x.max())
 binned_time = pd.cut(scaled_time, bins = 20).apply(lambda x: np.round(x.mid,2))
 
 
@@ -94,7 +102,7 @@ plt.close()
 
 #plot clone frequencies for each replicate
 print('plotting clone frequencies for each replicate')
-replist = list(set(timedata['rep']))
+replist = comp_reset['rep'].unique()
 replist.sort()
 
 for rep in replist:
@@ -125,9 +133,40 @@ for rep in replist:
     plt.savefig(f'{SAVEFIGFOLDER}/timeplot_rep_{rep}.png')
     plt.show(block = False)
     plt.close()
+print('done')
+################################################
+print('making blood tissue scatterplots...')
+tbins = comp_reset['norm_t_binned'].unique()
+tbins.sort()
+sns.scatterplot(data = comp_reset, x = 'tissue', y = 'blood',hue = 'norm_age')
+plt.plot(np.linspace(0,1),np.linspace(0,1))
+plt.savefig(f'{SAVEFIGFOLDER}/bloodvtiss_all_time.png')
+plt.show(block = False)
+for t in tbins:
+    data = comp_reset[comp_reset['norm_t_binned']==t]
+    sns.scatterplot(data = data, x = 'tissue',y = 'blood', size = 'n_drivers',hue = 'norm_age')
+    plt.title(f't = {t}')
+    plt.plot(np.linspace(0,1),np.linspace(0,1))
+    plt.savefig(f'{SAVEFIGFOLDER}/bloodvtiss_t_{t}.png')
+    plt.show(block = False)
+print('done')
+##########################################
+print('making correlation plot...')
+for cutoff in [.01,.1,.2,.3]:
+    comp_vis = comp_reset[(comp_reset['blood'] > cutoff) | (comp_reset['tissue'] > cutoff)]
+    corr = comp_vis.groupby(['norm_t_binned'])[['blood','tissue']].corr().iloc[0::2,-1].reset_index()
+    #p = comp_vis.groupby(['norm_t_binned']).apply(lambda x: pearsonr(x['blood'],x['tissue']))
+    sns.lineplot(data = corr, x = 'norm_t_binned',y = 'tissue',label = f'cutoff = {cutoff}',linestyle = '--')
+    plt.ylabel('pearson r')
+    plt.xlabel('norm. t')
+plt.title('blood-tissue correlation')
+plt.ylim((0,1.1))
+plt.savefig(f'{SAVEFIGFOLDER}/corr.png')
+plt.show()
+print('done')
 #save comparison file
 comp_reset.to_csv(os.path.join(OUTDIR,'comp.csv'))
 #save analysis files
 wilcox.to_csv(os.path.join(OUTDIR,'wilcox.csv'))
 ks.to_csv(os.path.join(OUTDIR,'ks.csv'))
-print('done')
+print('done with everything')
