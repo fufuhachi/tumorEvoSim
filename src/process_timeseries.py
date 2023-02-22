@@ -60,6 +60,7 @@ comp_reset['cell_hge'] = timedata['cell_hge']
 comp_reset['is_outer'] = timedata['is_outer']
 comp_reset['n_drivers'] = timedata['n_drivers']
 comp_reset['death_rate'] = timedata['death_rate']
+
 max_freqs = comp_reset.groupby(['rep','genotype'])['blood'].max()
 top_gens = max_freqs.sort_values()[-N_CLONES_TO_PLOT:]
 
@@ -70,6 +71,10 @@ scaled_time = comp_reset.groupby('rep')['t'].transform(lambda x: x/x.max())
 binned_time = pd.cut(scaled_time, bins = 20).apply(lambda x: np.round(x.mid,2))
 comp_reset['norm_t'] = scaled_time
 comp_reset['norm_t_binned'] = binned_time.astype(float)
+
+age = comp_reset.groupby(['rep','genotype'])['t'].transform(lambda x: (x - x.min()))
+comp_reset['norm_age'] = age
+comp_reset['norm_age'] = comp_reset.groupby('rep').apply(lambda x: x['norm_age']/x['t'].max()).reset_index()['norm_age']
 
 
 #wilcoxon signed-rank test
