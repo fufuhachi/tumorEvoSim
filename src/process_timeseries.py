@@ -149,6 +149,7 @@ sns.scatterplot(data = comp_reset, x = 'tissue', y = 'blood',hue = 'norm_age')
 plt.plot(np.linspace(0,1),np.linspace(0,1))
 plt.savefig(f'{SAVEFIGFOLDER}/bloodvtiss_all_time.png')
 plt.show(block = False)
+plt.close()
 for t in tbins:
     data = comp_reset[comp_reset['norm_t_binned']==t]
     sns.scatterplot(data = data, x = 'tissue',y = 'blood', size = 'n_drivers',hue = 'norm_age')
@@ -169,7 +170,8 @@ for cutoff in [.01,.1,.2,.3]:
 plt.title('blood-tissue correlation')
 plt.ylim((0,1.1))
 plt.savefig(f'{SAVEFIGFOLDER}/corr.png')
-plt.show()
+plt.show(block = False)
+plt.close()
 print('done')
 #save comparison file
 comp_reset.to_csv(os.path.join(OUTDIR,'comp.csv'))
