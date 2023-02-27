@@ -80,26 +80,26 @@ comp_reset['norm_age'] = age
 comp_reset['norm_age'] = comp_reset.groupby('rep').apply(lambda x: x['norm_age']/x['t'].max()).reset_index()['norm_age']
 
 
-print('getting inner and outer genotype counts')
-t_outer_count = (grouped_outer.size()).reset_index()
-b_outer_count = (grouped_outer['cell_hge'].sum()).reset_index()
+timedata['cell_hge'] = timedata['death_rate']/(timedata['birth_rate']-timedata['death_rate']+33)
+timedata['is_outer'] = timedata['r'] > RADIUS
 
-t_total_count = grouped_rep_t_gen.size()
-b_total_count = grouped_rep_t_gen['cell_hge'].sum()
-t_inner_count = t_total_count.combine(t_outer_count, func = lambda x, y: x - y, fill_value = 0)
-b_inner_count = b_total_count.combine(t_outer_count, func = lambda x, y: x - y, fill_value = 0)
+print('getting inner and outer genotype counts')
+t_outer_count = timedata[timedata['is_outer']].groupby(['rep','t','genotype']).size().reset_index()[0]
+b_outer_count = timedata[timedata['is_outer']].groupby(['rep','t','genotype'])['cell_hge'].sum().reset_index()['cell_hge']
+t_total_count = timedata.groupby(['rep','t','genotype']).size().reset_index()[0]
+b_total_count = timedata.groupby(['rep','t','genotype'])['cell_hge'].sum().reset_index()['cell_hge']
+t_inner_count =t_total_count.combine(t_outer_count, lambda x,y: x-y, fill_value = 0)
+b_inner_count = b_total_count.combine(b_outer_count,lambda x,y: x-y, fill_value = 0)
 t_outer_count = t_total_count - t_inner_count
 b_outer_count = b_total_count - b_inner_count
-
-comp_reset['tissue_inner_count'] = t_inner_count.reset_index()[0]
-comp_reset['tissue_outer_count'] = t_outer_count.reset_index()[0]
-comp_reset['blood_inner_count'] = b_inner_count.reset_index()['cell_hge']
-comp_reset['blood_outer_count'] = b_outer_count.reset_index()['cell_hge']
-print('done')
+comp_reset['tissue_inner_count'] = t_inner_count
+comp_reset['tissue_outer_count'] = t_outer_count
+comp_reset['blood_inner_count'] = b_inner_count
+comp_reset['blood_outer_count'] = b_outer_count
 
 
 #wilcoxon signed-rank test
-print('computing wilcoxon test')
+"""print('computing wilcoxon test')
 wilcox= comp_reset.groupby(['rep','t']).apply(lambda x: wilcoxon(x['blood'], x['tissue'],zero_method = "pratt")[1]).reset_index()
 wilcox['binned'] = binned_time
 wilcox['-log10p'] = -np.log10(wilcox[0])
@@ -125,7 +125,7 @@ plt.savefig(f'{SAVEFIGFOLDER}/ks_2samp.png')
 plt.title(TITLESTRING)
 plt.legend()
 plt.show(block  = False)
-plt.close()
+plt.close()"""
 
 
 #plot clone frequencies for each replicate
@@ -140,7 +140,7 @@ for rep in replist:
     max_freqs = comp_reset_rep.groupby('genotype')['blood'].max()
     top_gens = max_freqs.sort_values()[-N_CLONES_TO_PLOT:]
     outer_count = per_time_count[per_time_count['rep']==rep] #
-    range_expanders = clone_outer_fraction[clone_outer_fraction['rep']==rep]
+    
 
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
@@ -148,10 +148,7 @@ for rep in replist:
     ax1.set_ylabel('clonal fraction')
     for gen in top_gens.index:
         data = comp_reset_rep[comp_reset_rep['genotype']==gen]
-        is_expander = range_expanders[range_expanders['genotype'] == gen]['range_expander'].values
         time = data['t']
-        #plot fraction difference 
-        #ax1.plot(data['t'],data['diff'], color = 'green' if is_expander else 'blue', label = 'expanding clone' if is_expander else 'non-expanding clone')
         line,  = ax1.plot(time, data['blood'], label = f'clone # {gen} (blood)',linestyle = '--')
         ax1.plot(time, data['tissue'], label = f'clone # {gen} (tissue)', color = line.get_color())
     ax2.plot(outer_count['t'], outer_count['pop_size'], color = 'black', label = 'pop. size')
@@ -163,7 +160,7 @@ for rep in replist:
     plt.close()
 print('done')
 ################################################
-print('making blood tissue scatterplots...')
+"""print('making blood tissue scatterplots...')
 tbins = comp_reset['norm_t_binned'].unique()
 tbins.sort()
 sns.scatterplot(data = comp_reset, x = 'tissue', y = 'blood',hue = 'norm_age')
@@ -194,10 +191,10 @@ plt.title('blood-tissue correlation')
 plt.savefig(f'{SAVEFIGFOLDER}/corr.png')
 plt.show(block = False)
 plt.close()
-print('done')
+print('done')"""
 #save comparison file
 comp_reset.to_csv(os.path.join(OUTDIR,'comp.csv'))
 #save analysis files
-wilcox.to_csv(os.path.join(OUTDIR,'wilcox.csv'))
-ks.to_csv(os.path.join(OUTDIR,'ks.csv'))
+#wilcox.to_csv(os.path.join(OUTDIR,'wilcox.csv'))
+#ks.to_csv(os.path.join(OUTDIR,'ks.csv'))
 print('done with everything')
