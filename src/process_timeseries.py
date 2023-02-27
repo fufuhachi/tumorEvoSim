@@ -38,17 +38,20 @@ N_CLONES_TO_PLOT = 100
 timedata = pd.read_csv(DATAPATH)
 timedata['cell_hge'] = timedata['death_rate']/(timedata['birth_rate']-timedata['death_rate']+33)
 timedata['is_outer'] = timedata['r'] > RADIUS
-outer_count = timedata.groupby(['rep','t'])['is_outer'].sum()
-pop_size = timedata.groupby(['rep','t'])['is_outer'].count()
+grouped_rep_t_gen = timedata.groupby(['rep','t','genotype'])
+grouped_rep_t = timedata.groupby(['rep','t'])
+grouped_outer = timedata[timedata['is_outer']].groupby(['rep','t','genotype'])
+
+outer_count = grouped_rep_t['is_outer'].sum()
+pop_size = grouped_rep_t['is_outer'].count()
 pop_size = pop_size.reset_index()
 per_time_count = outer_count.reset_index() #get fraction outside of boundary per time as column 'is_outer' 
 per_time_count['pop_size'] = pop_size['is_outer']
 
 #make comparison file
 print('making comparison files')
-tissue = timedata.groupby(['rep','t','genotype'])['genotype'].count()/timedata.groupby('t')['genotype'].size()
-blood = timedata.groupby(['rep','t','genotype'])['cell_hge'].sum()/timedata.groupby(['t'])['cell_hge'].sum()
-
+tissue = grouped_rep_t_gen['genotype'].count()/timedata.groupby(['t','rep'])['genotype'].size()
+blood = grouped_rep_t_gen['cell_hge'].sum()/timedata.groupby(['t','rep'])['cell_hge'].sum()
 comparison = tissue.compare(blood)
 comparison.columns = ['tissue','blood']
 comparison['diff'] = (comparison['blood'] - comparison['tissue'])
@@ -75,6 +78,24 @@ comp_reset['norm_t_binned'] = binned_time.astype(float)
 age = comp_reset.groupby(['rep','genotype'])['t'].transform(lambda x: (x - x.min()))
 comp_reset['norm_age'] = age
 comp_reset['norm_age'] = comp_reset.groupby('rep').apply(lambda x: x['norm_age']/x['t'].max()).reset_index()['norm_age']
+
+
+print('getting inner and outer genotype counts')
+t_outer_count = (grouped_outer.size()).reset_index()
+b_outer_count = (grouped_outer['cell_hge'].sum()).reset_index()
+
+t_total_count = grouped_rep_t_gen.size()
+b_total_count = grouped_rep_t_gen['cell_hge'].sum()
+t_inner_count = t_total_count.combine(t_outer_count, func = lambda x, y: x - y, fill_value = 0)
+b_inner_count = b_total_count.combine(t_outer_count, func = lambda x, y: x - y, fill_value = 0)
+t_outer_count = t_total_count - t_inner_count
+b_outer_count = b_total_count - b_inner_count
+
+comp_reset['tissue_inner_count'] = t_inner_count.reset_index()[0]
+comp_reset['tissue_outer_count'] = t_outer_count.reset_index()[0]
+comp_reset['blood_inner_count'] = b_inner_count.reset_index()['cell_hge']
+comp_reset['blood_outer_count'] = b_outer_count.reset_index()['cell_hge']
+print('done')
 
 
 #wilcoxon signed-rank test
@@ -157,6 +178,7 @@ for t in tbins:
     plt.plot(np.linspace(0,1),np.linspace(0,1))
     plt.savefig(f'{SAVEFIGFOLDER}/bloodvtiss_t_{t}.png')
     plt.show(block = False)
+    plt.close()
 print('done')
 ##########################################
 print('making correlation plot...')
@@ -168,7 +190,7 @@ for cutoff in [.01,.1,.2,.3]:
     plt.ylabel('pearson r')
     plt.xlabel('norm. t')
 plt.title('blood-tissue correlation')
-plt.ylim((0,1.1))
+#plt.ylim((0,1.1))
 plt.savefig(f'{SAVEFIGFOLDER}/corr.png')
 plt.show(block = False)
 plt.close()
