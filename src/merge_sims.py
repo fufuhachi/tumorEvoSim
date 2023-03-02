@@ -5,7 +5,7 @@ import sys
 import classes
 import simulation
 import os
-
+import multiprocessing
 #functions
 #depricated, use version in simulation.py
 '''def tumor_summary(tumor, rep = 0):
