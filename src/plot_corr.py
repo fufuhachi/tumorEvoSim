@@ -53,8 +53,8 @@ def plot_bloodvtiss_scatterplots(data, outdir):
     plt.show(block = False)
     plt.close()
     for t in tbins:
-        data = data[data['norm_t_binned']==t]
-        sns.scatterplot(data = data, x = 'tissue',y = 'blood', size = 'n_drivers',hue = 'norm_age')
+        vis = data[data['norm_t_binned']==t]
+        sns.scatterplot(data = vis, x = 'tissue',y = 'blood', size = 'n_drivers',hue = 'norm_age',legend = False)
         plt.title(f't = {t}')
         plt.plot(np.linspace(0,1),np.linspace(0,1))
         plt.savefig(os.path.join(outdir,f'bloodvtiss_t_{t}.png'))
@@ -63,7 +63,9 @@ def plot_bloodvtiss_scatterplots(data, outdir):
 print('done')
 if __name__ == '__main__':
     data = pd.read_csv(sys.argv[1])
-    outdir = sys.argv[2] if len(sys.argv) > 2 else ''
-    plot_corr_posneg(data,outdir)
+    outdir = sys.argv[2].strip() if len(sys.argv) > 2 else ''
+
+    plot_corr_all(data, outdir)
+    #plot_corr_posneg(data,outdir)
     plot_bloodvtiss_scatterplots(data, outdir)
     
