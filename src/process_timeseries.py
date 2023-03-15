@@ -79,8 +79,8 @@ age = comp_reset.groupby(['rep','genotype'])['t'].transform(lambda x: (x - x.min
 comp_reset['norm_age'] = age
 comp_reset['norm_age'] = comp_reset.groupby('rep').apply(lambda x: x['norm_age']/x['t'].max()).reset_index()['norm_age']
 #get mean r and sd per clone 
-rmean= grouped_rep_t_gen['r'].mean().reset_index()
-rstd  = grouped_rep_t_gen['r'].std().reset_index()
+rmean= grouped_rep_t_gen['r'].mean().reset_index()['r']
+rstd  = grouped_rep_t_gen['r'].std().reset_index()['r']
 comp_reset['r_mean'] = rmean
 comp_reset['r_std'] = rstd
 
