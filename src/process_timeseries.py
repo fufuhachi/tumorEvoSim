@@ -83,6 +83,11 @@ rmean= grouped_rep_t_gen['r'].mean().reset_index()['r']
 rstd  = grouped_rep_t_gen['r'].std().reset_index()['r']
 comp_reset['r_mean'] = rmean
 comp_reset['r_std'] = rstd
+centroid_x = grouped_rep_t_gen['x'].mean() 
+centroid_y = grouped_rep_t_gen['y'].mean()
+comp_reset['centroid_x'] = centroid_x
+comp_reset['centroid_y'] = centroid_y
+comp_reset['centroid_r'] = np.sqrt(centroid_x**2+centroid_y**2)
 
 timedata['cell_hge'] = timedata['death_rate']/(timedata['birth_rate']-timedata['death_rate']+33)
 timedata['is_outer'] = timedata['r'] > RADIUS
