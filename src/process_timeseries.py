@@ -78,7 +78,11 @@ comp_reset['norm_t_binned'] = binned_time.astype(float)
 age = comp_reset.groupby(['rep','genotype'])['t'].transform(lambda x: (x - x.min()))
 comp_reset['norm_age'] = age
 comp_reset['norm_age'] = comp_reset.groupby('rep').apply(lambda x: x['norm_age']/x['t'].max()).reset_index()['norm_age']
-
+#get mean r and sd per clone 
+rmean= grouped_rep_t_gen['r'].mean().reset_index()
+rstd  = grouped_rep_t_gen['r'].std().reset_index()
+comp_reset['r_mean'] = rmean
+comp_reset['r_std'] = rstd
 
 timedata['cell_hge'] = timedata['death_rate']/(timedata['birth_rate']-timedata['death_rate']+33)
 timedata['is_outer'] = timedata['r'] > RADIUS
