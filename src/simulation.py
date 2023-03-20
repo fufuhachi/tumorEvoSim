@@ -15,7 +15,7 @@ def get_cmap(n, name='hsv'):
     RGB color; the keyword argument name must be a standard mpl colormap name.'''
     return plt.cm.get_cmap(name, n)
 
-def tumor_scatter(x,y,c, cmap_name = None, dim = 80, show = True):
+def tumor_scatter(x,y,c, cmap_name = None, dim = 80, show = False):
     """return 2d tumor scatterplot, accepts the x and y coords and contour value"""
     unqs, idx = np.unique(c,return_inverse = True)
     cmap = get_cmap(len(unqs), name = cmap_name)
