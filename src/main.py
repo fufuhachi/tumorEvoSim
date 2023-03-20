@@ -255,7 +255,7 @@ def simulateTumor_mp(kwargs):
     sim_list = Pool(n_workers).starmap(single_run,replist,itertools.repeat(params))
     print('done!')
     return sim_list[0] if len(sim_list)==1 else sim_list
-    
+
 if __name__ == '__main__': 
     try:
         config_file = sys.argv[1]
