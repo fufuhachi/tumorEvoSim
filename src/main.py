@@ -5,8 +5,9 @@ import classes
 import os
 from pathlib import Path
 import sys
-import inspect
 import json
+from multiprocessing import Pool
+import itertools
 
 #absolute path to parameter file 
 PARAMS_PATH = '' #change to program directory 
@@ -177,20 +178,6 @@ def config_params(kwargs):
     r = calc_radius(kwargs['n_cells'],kwargs['dim'])
     kwargs['boundary'] = int(r*(1+PAD))
     
-    
-
-    #check_fcn_args(kwargs['dr_function'],kwargs['dr_params'],kwargs) #depricated
-    
-    
-    #for p in probs:
-    #    try:
-    #        assert(1>=kwargs[p]>=0)
-     #   except(AssertionError):
-     #       print(f'parameter {p} must be between 0 and 1 inclusive')
-     #       print('exiting...')
-     #       sys.exit()
-    
-    #check animation params
     if 'frame_rate' in kwargs:
         try:
             assert(type(kwargs['frame_rate'])==int)
@@ -247,6 +234,28 @@ def simulateTumor(**kwargs):
 
     return sim_list[0] if len(sim_list)==1 else sim_list
 
+def single_run(cur_rep,params):
+    max_attempts = 10000
+    attempts = 0
+    sim = classes.Simulation(params)
+    while sim.tumor.N < 2 and attempts < max_attempts:
+        sim = classes.Simulation(params)
+        print(f'trying rep {cur_rep}')
+        sim.run(cur_rep) 
+        attempts +=1
+    return sim
+        
+def simulateTumor_mp(kwargs):
+    params = config_params(kwargs)
+    first_rep = params['first_rep']
+    last_rep = params['last_rep']
+    replist = np.arange(first_rep, last_rep+1)
+    print('starting simulation...')
+    n_workers = os.cpu_count()
+    sim_list = Pool(n_workers).starmap(single_run,replist,itertools.repeat(params))
+    print('done!')
+    return sim_list[0] if len(sim_list)==1 else sim_list
+    
 if __name__ == '__main__': 
     try:
         config_file = sys.argv[1]
