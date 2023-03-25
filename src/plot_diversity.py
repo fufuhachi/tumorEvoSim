@@ -31,6 +31,7 @@ def plot_div_old(div_data, outdir):
     plt.close()
 
 def plot_div(data, outdir):
+    print('plotting div boxplot')
     #sns.lineplot(data = data, x = 'norm_t_binned',y = 'tiss_inner_div',label = 'tiss inner')
     #sns.lineplot(data = data, x = 'norm_t_binned',y = 'tiss_outer_div',label = 'tiss outer')
     #sns.lineplot(data = data, x = 'norm_t_binned',y = 'bl_inner_div',label = 'blood inner')
@@ -45,7 +46,23 @@ def plot_div(data, outdir):
     plt.savefig(os.path.join(outdir,'div.png'))
     plt.show(block = False)
     plt.close()
-
+def plot_div_line(data, outdir):
+    print('plotting div lineplot')
+    data = data[['norm_t_binned', 'tiss_whole_div', 'bl_whole_div']]
+    data.columns = ['norm_t_binned', 'tissue', 'blood']
+    df = pd.melt(data, id_vars = ['norm_t_binned'], value_vars = ['tissue','blood']) #hue_kws = {'label': {'tiss_whole_div'}})
+    
+    sns.lineplot(data = df, x = 'norm_t_binned', y = 'value', hue = 'variable', err_style = 'band', errorbar = 'sd', palette = ['b', 'r'], )
+    #sns.lineplot(data, x = 'norm_t_binned', y = 'tissue', color = 'blue', err_style = 'band', errorbar = 'sd')
+    #sns.lineplot(data, x = 'norm_t_binned', y = 'blood', color = 'red', err_style = 'band', errorbar = 'sd')
+    plt.xticks(rotation = 45)
+    plt.title('Blood vs Tissue ITH')
+    plt.ylabel('Inv. Simpson D')
+    plt.xlabel('normalized time')
+    #plt.legend(labels=['tissue','blood'])
+    plt.savefig(os.path.join(outdir,'div_line.png'))
+    plt.show(block = False)
+    plt.close()
 def inv_simpson_ind(vec):
     cutoff  = 0
     """input: vector of frequencies.
@@ -73,6 +90,7 @@ def cf_hist(data, outdir,cutoff = 0):
     plt.show(block = False)
     plt.close()
 if __name__ == '__main__':
+    print('loading data')
     data = pd.read_csv(sys.argv[1])
     outdir = '' if len(sys.argv) < 3 else sys.argv[2]
 
@@ -90,6 +108,7 @@ if __name__ == '__main__':
     #print(data.shape, med_vals.shape)
     outdir = sys.argv[2].strip() if len(sys.argv) > 2 else ''
     out = get_div(med_df)
-    plot_div(out, outdir)
-    cf_hist(med_df, outdir, cutoff = .01)
+    #plot_div(out, outdir)
+    plot_div_line(out, outdir)
+    #cf_hist(med_df, outdir, cutoff = .01)
     print('done')
