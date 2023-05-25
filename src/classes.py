@@ -3,9 +3,6 @@ import numpy as np
 import pickle
 import sys
 
-
-
-
 #classes and object methods
 class Simulation():
     def __init__(self, params):
